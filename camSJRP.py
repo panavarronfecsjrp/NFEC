@@ -9,38 +9,6 @@ import io
 import smtplib
 from email.message import EmailMessage
 from streamlit_js_eval import streamlit_js_eval
-from streamlit_webrtc import webrtc_streamer, WebRtcMode, VideoProcessorBase, RTCConfiguration
-import av
-import numpy as np
-import asyncio
-
-# Function to get or create an event loop
-def get_or_create_event_loop():
-    try:
-        return asyncio.get_running_loop()
-    except RuntimeError:  # No running loop, let's create a new one
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        return loop
-
-# Ensure the event loop is set
-get_or_create_event_loop()
-
-class FrameCaptureProcessor(VideoProcessorBase):
-    def __init__(self):
-        self.frame = None
-
-    def recv(self, frame):
-        # Converter frame para imagem (PIL)
-        img = frame.to_ndarray(format="bgr24")
-        self.frame = img  # Guardar o frame mais recente
-        return av.VideoFrame.from_ndarray(img, format="bgr24")
-
-# Função para converter o frame capturado para uma imagem PIL
-def get_captured_image(frame):
-    # Converte o array numpy para imagem PIL
-    return Image.fromarray(frame)
-
 
 # Carregar variáveis do arquivo .env
 load_dotenv()
@@ -59,7 +27,8 @@ def conectar_banco():
 st.set_page_config(page_title='Dinatec - Canhoto Nota Fiscal', 
                    layout='wide', 
                    page_icon=':truck:',
-                   initial_sidebar_state="collapsed")
+                   initial_sidebar_state="collapsed",
+                   )
 
 # Função para validar e-mail
 def validar_email(email):
@@ -77,7 +46,9 @@ def exibir_logo(logo_path="logo.jpg"):
     with col2:
         quantidade_canhotos = contar_canhotos()
         st.markdown(f"<h3 style='text-align: center; font-weight:bold'>Qtd. Canhotos:<br>🔗{quantidade_canhotos}</h3>", unsafe_allow_html=True)
+
     with col3:
+        hora_atual = datetime.datetime.now().strftime("%H:%M:%S")
         st.markdown(f"<h3 style='text-align: center; font-weight:bold'>Empresa<br>São José do Rio Preto<br></h3>", unsafe_allow_html=True)
 
 def verificar_nota_existente(nota_fiscal):
@@ -93,6 +64,7 @@ def verificar_nota_existente(nota_fiscal):
     existe = cursor.fetchone()[0] > 0
     conn.close()
     return existe
+
 
 def salvar_imagem_no_banco(imagem, nota_fiscal):
     if imagem.mode == 'RGBA':
@@ -150,21 +122,26 @@ def consultar_canhoto(numero_nota):
     return resultado
 
 def enviar_email_cpanel(destinatario, assunto, mensagem, imagem_bytes, nome_imagem):
+    # Configurações do servidor de e-mail no cPanel
     email_origem = os.getenv("EMAIL_ORIGEM")
     senha_email = os.getenv("EMAIL_SENHA")
     smtp_server = os.getenv("SMTP_SERVER")
     smtp_port = int(os.getenv("SMTP_PORT"))
 
+    # Configura o e-mail
     msg = EmailMessage()
     msg['From'] = email_origem
     msg['To'] = destinatario
     msg['Subject'] = assunto
     msg.set_content(mensagem, subtype='html')
+
+    # Anexa a imagem
     msg.add_attachment(imagem_bytes, maintype='image', subtype='jpeg', filename=nome_imagem)
 
+    # Envia o e-mail usando TLS (porta 587)
     try:
         with smtplib.SMTP(smtp_server, smtp_port) as smtp:
-            smtp.starttls()
+            smtp.starttls()  # Inicia a conexão TLS
             smtp.login(email_origem, senha_email)
             smtp.send_message(msg)
         st.success("E-mail enviado com sucesso!")
@@ -173,6 +150,28 @@ def enviar_email_cpanel(destinatario, assunto, mensagem, imagem_bytes, nome_imag
     except Exception as e:
         st.error(f"Ocorreu um erro inesperado ao enviar o e-mail: {e}")
 
+# Código para mover o texto para o rodapé
+footer = """
+<style>
+    .footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: white;
+        color: black;
+        text-align: center;
+        padding: 10px;
+    }
+    /* Garantindo que o rodapé fique no topo de outros elementos */
+    .main > div {
+        padding-bottom: 150px; /* ajuste conforme necessário */
+    }
+</style>
+<div class="footer">
+    Desenvolvido.: Dinatec peças e serviços | <a href="mailto:thiago.panuto@dinatec.com.br">Suporte</a>
+</div>
+"""
 # Exibir logomarca no topo da página
 exibir_logo("logo.jpg")
 
@@ -184,38 +183,49 @@ pagina = st.sidebar.selectbox("Selecione a página", ["📸 Captura de Imagem", 
 
 if pagina == "📸 Captura de Imagem":
     st.header("📸 Captura Imagem - Canhoto Nota Fiscal")
+
+    # Entrada de dados para o número da nota fiscal com validação
     nota_fiscal = st.text_input("☑️ Número da Nota Fiscal", max_chars=50, placeholder="Digite o número da nota fiscal aqui")
 
-    if nota_fiscal and nota_fiscal.isdigit():
-        nota_existente = verificar_nota_existente(nota_fiscal)
-        if nota_existente:
-            st.warning("⚠️ Nota fiscal já gravada no banco de dados.")
-        else:
-            st.write("Escolha uma opção para capturar a imagem:")
-            capture_button_clicked = st.button("Capturar Imagem da Câmera")
-            webrtc_ctx = webrtc_streamer(
-                key="camera",
-                mode=WebRtcMode.SENDRECV,
-                #rtc_configuration=RTC_CONFIGURATION,
-                video_processor_factory=FrameCaptureProcessor,
-                media_stream_constraints={"video": True, "audio": False},
-            )
+    # Validação para permitir apenas números
+    if nota_fiscal and not nota_fiscal.isdigit():
+        st.error("⚠️ Por favor, insira apenas números para o número da nota fiscal.")
+    else:
+        # Variável para verificar se a nota fiscal já existe
+        nota_existente = False
 
-            if capture_button_clicked and webrtc_ctx and webrtc_ctx.video_processor:
-                frame = webrtc_ctx.video_processor.frame
-                if frame is not None:
-                    image = get_captured_image(frame)
-                    st.image(image, caption="Imagem Capturada", use_column_width=True)
-                    if st.button("☑️ Salvar Imagem"):
-                        with st.spinner("Salvando imagem..."):
-                            salvar_imagem_no_banco(image, nota_fiscal)
-                            limpar_tela()
-                            streamlit_js_eval(js_expressions="parent.window.location.reload()")
+        # Verifica a duplicidade ao digitar o número da nota fiscal
+        if nota_fiscal:
+            nota_existente = verificar_nota_existente(nota_fiscal)
+            if nota_existente:
+                st.warning("⚠️ Nota fiscal já gravada no banco de dados.")
+        
+        # Exibe o uploader de imagem somente se a nota fiscal não for duplicada
+        if not nota_existente and nota_fiscal:
+            image_data = st.file_uploader("Clique abaixo para capturar uma imagem", type=["jpg", "jpeg", "png"], accept_multiple_files=False)
+
+            if image_data is not None:
+                image = Image.open(image_data)
+                st.image(image, caption="Imagem Capturada", use_column_width=True)
+
+                # Salva a imagem no banco de dados
+                if st.button("☑️ Salvar Imagem"):
+                    with st.spinner("Salvando imagem..."):
+                        salvar_imagem_no_banco(image, nota_fiscal)
+                        limpar_tela()
+
+                        # Força a atualização da página com JavaScript
+                        streamlit_js_eval(js_expressions="parent.window.location.reload()")
+        elif nota_existente:
+            st.info("⚠️ Insira um novo número de nota fiscal para capturar uma nova imagem.")
 
 
 elif pagina == "🔍 Consulta de Canhoto":
     st.header("🔍 Consulta de Canhoto")
+
+    # Entrada de dados para consulta
     numero_nota = st.number_input("✅ Número Nota Fiscal para consulta", min_value=0, step=1, format="%d", placeholder="Digite número nota fiscal aqui")
+
     if st.button("Consultar Canhoto"):
         if numero_nota:
             resultado = consultar_canhoto(numero_nota)
@@ -233,13 +243,19 @@ elif pagina == "🔍 Consulta de Canhoto":
 
 elif pagina == "📩 Envio de E-mail":
     st.header("📩 Envio de E-mail com Canhoto")
+
+    # Campos para inserção de dados
     email_destino = st.text_input("🧑‍💼 Destinatário:", placeholder="Digite o e-mail do destinatário")
+    # Validação do e-mail
     if email_destino and not validar_email(email_destino):
         st.error("⚠️ O e-mail informado não é válido. Por favor, insira um e-mail correto.")
     assunto_email = st.text_input("📝 Assunto do e-mail:", "Canhoto de Nota Fiscal")
     numero_nota = st.number_input("🗂️ Digite número Nota Fiscal:", min_value=0, step=1, format="%d", placeholder="Digite o número da Nota Fiscal para envio")
     
+    # Variável para armazenar o resultado da consulta
     resultado = None
+
+    # Consulta o canhoto ao digitar o número da nota fiscal
     if numero_nota:
         resultado = consultar_canhoto(numero_nota)
         if resultado:
@@ -254,6 +270,7 @@ elif pagina == "📩 Envio de E-mail":
         else:
             st.error("⚠️ Nenhum registro encontrado para o número de nota fiscal fornecido.")
 
+    # Botão para envio de e-mail
     if resultado and email_destino and assunto_email:
         if st.button("Enviar por E-mail"):
             with st.spinner("Enviando e-mail..."):
@@ -265,6 +282,10 @@ elif pagina == "📩 Envio de E-mail":
                     nome_imagem=f"Canhoto_{numero_nota}.jpeg"
                 )
                 limpar_tela()
+        
+                # Força a atualização da página com JavaScript
                 streamlit_js_eval(js_expressions="parent.window.location.reload()")
     else:
         st.info("🖥️ Preencha e-mail, assunto e a nota fiscal para prosseguir.")
+        
+st.markdown(footer, unsafe_allow_html=True)
