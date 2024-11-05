@@ -9,6 +9,8 @@ import io
 import smtplib
 from email.message import EmailMessage
 from streamlit_js_eval import streamlit_js_eval
+from streamlit_webrtc import webrtc_streamer  # Biblioteca para captura de imagem diretamente da câmera
+
 
 # Carregar variáveis do arquivo .env
 load_dotenv()
@@ -187,7 +189,7 @@ if pagina == "📸 Captura de Imagem":
     # Entrada de dados para o número da nota fiscal com validação
     nota_fiscal = st.text_input("☑️ Número da Nota Fiscal", max_chars=50, placeholder="Digite o número da nota fiscal aqui")
 
-    # Validação para permitir apenas números
+     # Validação para permitir apenas números
     if nota_fiscal and not nota_fiscal.isdigit():
         st.error("⚠️ Por favor, insira apenas números para o número da nota fiscal.")
     else:
@@ -200,22 +202,27 @@ if pagina == "📸 Captura de Imagem":
             if nota_existente:
                 st.warning("⚠️ Nota fiscal já gravada no banco de dados.")
         
-        # Exibe o uploader de imagem somente se a nota fiscal não for duplicada
+        # Exibe a opção de captura de imagem
         if not nota_existente and nota_fiscal:
-            image_data = st.file_uploader("Clique abaixo para capturar uma imagem", type=["jpg", "jpeg", "png"], accept_multiple_files=False)
+            st.write("Escolha uma opção para capturar a imagem:")
 
-            if image_data is not None:
-                image = Image.open(image_data)
-                st.image(image, caption="Imagem Capturada", use_column_width=True)
+            # Opção 1: Captura de imagem diretamente pela câmera (somente para dispositivos compatíveis)
+            if st.button("Capturar Imagem da Câmera"):
+                webrtc_ctx = webrtc_streamer(key="camera")
 
-                # Salva a imagem no banco de dados
-                if st.button("☑️ Salvar Imagem"):
-                    with st.spinner("Salvando imagem..."):
-                        salvar_imagem_no_banco(image, nota_fiscal)
-                        limpar_tela()
+                if webrtc_ctx.image_data is not None:
+                    image = webrtc_ctx.image_data
+                    st.image(image, caption="Imagem Capturada", use_column_width=True)
 
-                        # Força a atualização da página com JavaScript
-                        streamlit_js_eval(js_expressions="parent.window.location.reload()")
+                    # Salva a imagem no banco de dados
+                    if st.button("☑️ Salvar Imagem"):
+                        with st.spinner("Salvando imagem..."):
+                            salvar_imagem_no_banco(image, nota_fiscal)
+                            limpar_tela()
+
+                            # Força a atualização da página com JavaScript
+                            streamlit_js_eval(js_expressions="parent.window.location.reload()")
+
         elif nota_existente:
             st.info("⚠️ Insira um novo número de nota fiscal para capturar uma nova imagem.")
 
