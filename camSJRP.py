@@ -147,6 +147,9 @@ def enviar_email_cpanel(destinatario, assunto, mensagem, imagem_bytes, nome_imag
     except Exception as e:
         st.error(f"Ocorreu um erro inesperado ao enviar o e-mail: {e}")
 
+# Exibir logomarca no topo da página
+exibir_logo("logo.jpg")
+
 # Interface Streamlit
 st.title("📌 Sistema de Captura e Consulta de Canhoto - Grupo Dinatec")
 
