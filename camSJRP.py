@@ -50,7 +50,7 @@ def exibir_logo(logo_path="logo.jpg"):
 
     with col3:
         hora_atual = datetime.datetime.now().strftime("%H:%M:%S")
-        st.markdown(f"<h3 style='text-align: center; font-weight:bold'>Empresa<br>Ribeirão Preto<br></h3>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='text-align: center; font-weight:bold'>Empresa<br>São José do Rio Preto<br></h3>", unsafe_allow_html=True)
 
 # Função para verificar se a nota fiscal já existe no banco
 def verificar_nota_existente(nota_fiscal):
