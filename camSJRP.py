@@ -226,7 +226,6 @@ if pagina == "📸 Captura de Imagem":
         elif nota_existente:
             st.info("⚠️ Insira um novo número de nota fiscal para capturar uma nova imagem.")
 
-
 elif pagina == "🔍 Consulta de Canhoto":
     st.header("🔍 Consulta de Canhoto")
 
