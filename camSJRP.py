@@ -180,12 +180,12 @@ def exibir_logo(logo_path="logo.jpg"):
 def otimizar_imagem(imagem):
     try:
         # Aplica nitidez
-        enhancer_nitidez = ImageEnhance.Sharpness(imagem)
-        imagem = enhancer_nitidez.enhance(1.5)  # Valor otimizado para nitidez
+        #enhancer_nitidez = ImageEnhance.Sharpness(imagem)
+        #imagem = enhancer_nitidez.enhance(1.5)  # Valor otimizado para nitidez
         
         # Ajusta contraste
-        enhancer_contraste = ImageEnhance.Contrast(imagem)
-        imagem = enhancer_contraste.enhance(0.4)  # Valor otimizado para contraste
+        #enhancer_contraste = ImageEnhance.Contrast(imagem)
+        #imagem = enhancer_contraste.enhance(0.4)  # Valor otimizado para contraste
         
         # Ajusta brilho
         enhancer_brilho = ImageEnhance.Brightness(imagem)
