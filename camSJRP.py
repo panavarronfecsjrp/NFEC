@@ -198,32 +198,52 @@ if pagina == "📸 Captura de Imagem":
             col1, col2 = st.columns(2)
 
             with col1:
-                # Câmera com tamanho ajustado
+            # Câmera com tamanho ajustado
                 camera_image = st.camera_input(
                     "Tire uma foto com a câmera",
-                    key="camera",
-                )
+                    key="camera",)
 
-                if camera_image is not None:
-                    # Abre e redimensiona a imagem
+            if camera_image is not None:
+                try:
+                    # Abre a imagem
                     img_tratada = Image.open(camera_image)
+        
+                    # Opção de rotação
+                    rotacao = st.radio(
+                                "Selecione a orientação da imagem:",
+                                ["Original", "Rotação 90°", "Rotação 180°", "Rotação 270°"],
+                                horizontal=True
+                                )
+        
+                    # Aplica a rotação escolhida
+                    if rotacao == "Rotação 90°":
+                        img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_90)
+                    elif rotacao == "Rotação 180°":
+                        img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_180)
+                    elif rotacao == "Rotação 270°":
+                        img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_270)
+        
                     # Ajusta o tamanho máximo
-                    max_width = 1600
+                    max_width = 2000
                     ratio = max_width / img_tratada.size[0]
                     new_size = (max_width, int(img_tratada.size[1] * ratio))
                     img_tratada = img_tratada.resize(new_size, Image.Resampling.LANCZOS)
+        
+                    # Exibe a imagem
                     st.image(
                         img_tratada,
                         caption="Imagem Capturada pela Câmera",
                         use_column_width=True,
-                    )
-                    
+                        )
+        
                     # Botão para salvar imagem da câmera
                     if st.button("☑️ Salvar Imagem da Câmera"):
                         with st.spinner("Salvando imagem..."):
                             salvar_imagem_no_banco(img_tratada, nota_fiscal)
                             limpar_tela()
                             streamlit_js_eval(js_expressions="parent.window.location.reload()")
+                except Exception as e:
+                    st.error(f"Erro ao processar a imagem: {str(e)}")
 
             with col2:
                 # Upload de arquivo
