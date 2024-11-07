@@ -198,12 +198,24 @@ if pagina == "📸 Captura de Imagem":
             col1, col2 = st.columns(2)
 
             with col1:
-                # Estilo CSS personalizado
+                # Estilo CSS personalizado para melhorar a visualização da câmera
                 st.markdown("""
                     <style>
+                        .stCamera {
+                            height: auto;
+                            width: 100%;
+                        }
                         .stCamera > video {
                             width: 100%;
                             height: auto;
+                            max-height: 500px;
+                            object-fit: cover;
+                        }
+                        .stCamera > img {
+                            width: 100%;
+                            height: auto;
+                            max-height: 500px;
+                            object-fit: contain;
                         }
                     </style>
                 """, unsafe_allow_html=True)
@@ -217,6 +229,22 @@ if pagina == "📸 Captura de Imagem":
                 try:
                     # Abre a imagem
                     img_tratada = Image.open(camera_image)
+                    
+                    # Mantém a resolução original da imagem
+                    # Ajusta apenas se for maior que o limite máximo
+                    max_width = 2000
+                    if img_tratada.size[0] > max_width:
+                        ratio = max_width / img_tratada.size[0]
+                        new_size = (max_width, int(img_tratada.size[1] * ratio))
+                        img_tratada = img_tratada.resize(new_size, Image.Resampling.LANCZOS)
+                    
+                    # Melhora a nitidez da imagem
+                    enhancer = ImageEnhance.Sharpness(img_tratada)
+                    img_tratada = enhancer.enhance(1.5)  # Aumenta a nitidez em 50%
+                    
+                    # Melhora o contraste
+                    enhancer = ImageEnhance.Contrast(img_tratada)
+                    img_tratada = enhancer.enhance(1.2)  # Aumenta o contraste em 20%
        
                     # Opção de rotação
                     rotacao = st.radio(
@@ -232,12 +260,6 @@ if pagina == "📸 Captura de Imagem":
                         img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_180)
                     elif rotacao == "Rotação 270°":
                         img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_270)
-        
-                    # Ajusta o tamanho máximo
-                    max_width = 2000
-                    ratio = max_width / img_tratada.size[0]
-                    new_size = (max_width, int(img_tratada.size[1] * ratio))
-                    img_tratada = img_tratada.resize(new_size, Image.Resampling.LANCZOS)
         
                     # Exibe a imagem
                     st.image(
