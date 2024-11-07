@@ -181,21 +181,21 @@ def otimizar_imagem(imagem):
     try:
         # Aplica nitidez
         enhancer_nitidez = ImageEnhance.Sharpness(imagem)
-        imagem = enhancer_nitidez.enhance(1.0)  # Valor otimizado para nitidez
+        imagem = enhancer_nitidez.enhance(0.5)  # Valor otimizado para nitidez
         
         # Ajusta contraste
         enhancer_contraste = ImageEnhance.Contrast(imagem)
-        imagem = enhancer_contraste.enhance(1.0)  # Valor otimizado para contraste
+        imagem = enhancer_contraste.enhance(0.4)  # Valor otimizado para contraste
         
         # Ajusta brilho
         enhancer_brilho = ImageEnhance.Brightness(imagem)
-        imagem = enhancer_brilho.enhance(1.0)  # Valor otimizado para brilho
+        imagem = enhancer_brilho.enhance(0.3)  # Valor otimizado para brilho
         
         # Aplica filtro de nitidez adicional
-        imagem = imagem.filter(ImageFilter.SHARPEN)
+        #imagem = imagem.filter(ImageFilter.SHARPEN)
         
         # Aplica um filtro de detalhes
-        imagem = imagem.filter(ImageFilter.DETAIL)
+        #imagem = imagem.filter(ImageFilter.DETAIL)
         
         return imagem
     except Exception as e:
