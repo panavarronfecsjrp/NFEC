@@ -170,8 +170,9 @@ if pagina == "📸 Captura de Imagem":
         if nota_existente:
             st.warning("⚠️ Nota fiscal já gravada no banco de dados.")
         else:
-            # Habilita a câmera se a nota fiscal não estiver no banco de dados
-            image_data = st.camera_input("Capture a imagem do canhoto")
+            # Instruções para capturar a imagem externamente e carregar o arquivo em alta resolução
+            st.info("📱 Para alta resolução, capture a imagem externamente e faça o upload abaixo.")
+            image_data = st.file_uploader("Envie a imagem do canhoto em alta resolução", type=["jpg", "jpeg", "png"])
             if image_data is not None:
                 img_tratada = Image.open(image_data)
                 st.image(img_tratada, caption="Imagem Capturada", use_column_width=True)
