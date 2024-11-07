@@ -11,7 +11,7 @@ import smtplib
 from email.message import EmailMessage
 from streamlit_js_eval import streamlit_js_eval
 import cv2
-
+from PIL import Image, ImageEnhance, ImageFilter  # Mantenha este import no topo do arquivo
 
 # Carregar variáveis do arquivo .env
 load_dotenv()
@@ -176,6 +176,32 @@ def exibir_logo(logo_path="logo.jpg"):
         hora_atual = datetime.datetime.now().strftime("%H:%M:%S")
         st.markdown(f"<h3 style='text-align: center; font-weight:bold'>Empresa<br>São José do Rio Preto<br></h3>", unsafe_allow_html=True)
 
+"""Função para otimizar automaticamente a qualidade da imagem"""
+def otimizar_imagem(imagem):
+    try:
+        # Aplica nitidez
+        enhancer_nitidez = ImageEnhance.Sharpness(imagem)
+        imagem = enhancer_nitidez.enhance(2.0)  # Valor otimizado para nitidez
+        
+        # Ajusta contraste
+        enhancer_contraste = ImageEnhance.Contrast(imagem)
+        imagem = enhancer_contraste.enhance(1.3)  # Valor otimizado para contraste
+        
+        # Ajusta brilho
+        enhancer_brilho = ImageEnhance.Brightness(imagem)
+        imagem = enhancer_brilho.enhance(1.1)  # Valor otimizado para brilho
+        
+        # Aplica filtro de nitidez adicional
+        imagem = imagem.filter(ImageFilter.SHARPEN)
+        
+        # Aplica um filtro de detalhes
+        imagem = imagem.filter(ImageFilter.DETAIL)
+        
+        return imagem
+    except Exception as e:
+        st.error(f"Erro ao otimizar imagem: {str(e)}")
+        return imagem
+
 exibir_logo("logo.jpg")
 
 # Menu de navegação
@@ -207,6 +233,9 @@ if pagina == "📸 Captura de Imagem":
                 try:
                     # Abre a imagem
                     img_tratada = Image.open(camera_image)
+
+                    # Aplica otimizações automáticas
+                    img_tratada = otimizar_imagem(img_tratada)
         
                     # Opção de rotação
                     rotacao = st.radio(
