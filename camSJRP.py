@@ -198,10 +198,20 @@ if pagina == "📸 Captura de Imagem":
             col1, col2 = st.columns(2)
 
             with col1:
-            # Câmera com tamanho ajustado
+                # Estilo CSS personalizado
+                st.markdown("""
+                    <style>
+                        .stCamera > video {
+                            width: 100%;
+                            height: auto;
+                        }
+                    </style>
+                """, unsafe_allow_html=True)
+                
                 camera_image = st.camera_input(
                     "Tire uma foto com a câmera",
-                    key="camera",)
+                    key="camera"
+                )
 
             if camera_image is not None:
                 try:
