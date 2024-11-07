@@ -10,6 +10,8 @@ from rembg import remove  # Biblioteca para remover fundo da imagem
 import smtplib
 from email.message import EmailMessage
 from streamlit_js_eval import streamlit_js_eval
+import cv2
+
 
 # Carregar variáveis do arquivo .env
 load_dotenv()
@@ -30,6 +32,28 @@ st.set_page_config(page_title='Dinatec - Canhoto Nota Fiscal',
                    page_icon=':truck:',
                    initial_sidebar_state="collapsed",
                    )
+
+# Função para capturar imagem da câmera
+def capturar_imagem():
+    cap = cv2.VideoCapture(0)
+    st.info("Pressione 'Espaço' para capturar a imagem e 'Esc' para sair.")
+    img = None
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            st.error("Não foi possível acessar a câmera.")
+            break
+        cv2.imshow("Captura de Imagem", frame)
+        key = cv2.waitKey(1)
+        if key % 256 == 27:  # ESC
+            break
+        elif key % 256 == 32:  # Espaço
+            img = frame
+            break
+    cap.release()
+    cv2.destroyAllWindows()
+    return img
+
 
 # Função para validar e-mail
 def validar_email(email):
@@ -170,19 +194,57 @@ if pagina == "📸 Captura de Imagem":
         if nota_existente:
             st.warning("⚠️ Nota fiscal já gravada no banco de dados.")
         else:
-            # Instruções para capturar a imagem externamente e carregar o arquivo em alta resolução
-            st.info("📱 Para alta resolução, capture a imagem externamente e faça o upload abaixo.")
-            image_data = st.file_uploader("Envie a imagem do canhoto em alta resolução", type=["jpg", "jpeg", "png"])
-            if image_data is not None:
-                img_tratada = Image.open(image_data)
-                st.image(img_tratada, caption="Imagem Capturada", use_column_width=True)
+            # Criar duas colunas para câmera e upload
+            col1, col2 = st.columns(2)
 
-                # Salva a imagem no banco de dados
-                if st.button("☑️ Salvar Imagem"):
-                    with st.spinner("Salvando imagem..."):
-                        salvar_imagem_no_banco(img_tratada, nota_fiscal)
-                        limpar_tela()
-                        streamlit_js_eval(js_expressions="parent.window.location.reload()")
+            with col1:
+                # Câmera com tamanho ajustado
+                camera_image = st.camera_input(
+                    "Tire uma foto com a câmera",
+                    key="camera",
+                )
+
+                if camera_image is not None:
+                    # Abre e redimensiona a imagem
+                    img_tratada = Image.open(camera_image)
+                    # Ajusta o tamanho máximo
+                    max_width = 800
+                    ratio = max_width / img_tratada.size[0]
+                    new_size = (max_width, int(img_tratada.size[1] * ratio))
+                    img_tratada = img_tratada.resize(new_size, Image.Resampling.LANCZOS)
+                    st.image(
+                        img_tratada,
+                        caption="Imagem Capturada pela Câmera",
+                        use_column_width=True,
+                    )
+                    
+                    # Botão para salvar imagem da câmera
+                    if st.button("☑️ Salvar Imagem da Câmera"):
+                        with st.spinner("Salvando imagem..."):
+                            salvar_imagem_no_banco(img_tratada, nota_fiscal)
+                            limpar_tela()
+                            streamlit_js_eval(js_expressions="parent.window.location.reload()")
+
+            with col2:
+                # Upload de arquivo
+                st.info("📱 Para alta resolução, capture a imagem externamente e faça o upload abaixo.")
+                image_data = st.file_uploader("Envie a imagem do canhoto em alta resolução", type=["jpg", "jpeg", "png"])
+                
+                if image_data is not None:
+                    img_tratada = Image.open(image_data)
+                    st.image(
+                        img_tratada,
+                        caption="Imagem Carregada via Upload",
+                        use_column_width=True,
+                    )
+                    
+                    # Botão para salvar imagem do upload
+                    if st.button("☑️ Salvar Imagem do Upload"):
+                        with st.spinner("Salvando imagem..."):
+                            salvar_imagem_no_banco(img_tratada, nota_fiscal)
+                            limpar_tela()
+                            streamlit_js_eval(js_expressions="parent.window.location.reload()")
+
     elif nota_fiscal:
         st.error("⚠️ Por favor, insira apenas números para o número da nota fiscal.")
 
