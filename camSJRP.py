@@ -181,7 +181,7 @@ def otimizar_imagem(imagem):
     try:
         # Aplica nitidez
         enhancer_nitidez = ImageEnhance.Sharpness(imagem)
-        imagem = enhancer_nitidez.enhance(0.5)  # Valor otimizado para nitidez
+        imagem = enhancer_nitidez.enhance(1.5)  # Valor otimizado para nitidez
         
         # Ajusta contraste
         enhancer_contraste = ImageEnhance.Contrast(imagem)
