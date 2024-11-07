@@ -208,7 +208,7 @@ if pagina == "📸 Captura de Imagem":
                     # Abre e redimensiona a imagem
                     img_tratada = Image.open(camera_image)
                     # Ajusta o tamanho máximo
-                    max_width = 800
+                    max_width = 1600
                     ratio = max_width / img_tratada.size[0]
                     new_size = (max_width, int(img_tratada.size[1] * ratio))
                     img_tratada = img_tratada.resize(new_size, Image.Resampling.LANCZOS)
