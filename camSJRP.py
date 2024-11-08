@@ -230,16 +230,8 @@ if pagina == "📸 Captura de Imagem":
                         # Abre a imagem
                         img_tratada = Image.open(camera_image)
                         
-                        # Melhora a nitidez da imagem
-                        enhancer = ImageEnhance.Sharpness(img_tratada)
-                        img_tratada = enhancer.enhance(2.0)  # Aumenta a nitidez
-
-                        # Melhora o contraste
-                        enhancer = ImageEnhance.Contrast(img_tratada)
-                        img_tratada = enhancer.enhance(1.5)  # Aumenta o contraste
-
                         # Ajusta o tamanho máximo, se necessário
-                        max_width = 2000
+                        max_width = 800
                         if img_tratada.size[0] > max_width:
                             ratio = max_width / img_tratada.size[0]
                             new_size = (max_width, int(img_tratada.size[1] * ratio))
