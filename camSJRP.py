@@ -53,17 +53,22 @@ def verificar_nota_existente(nota_fiscal):
     conn.close()
     return existe
 
-# Função para salvar imagem com fundo removido no banco de dados
+# Função para salvar imagem no banco de dados
 def salvar_imagem_no_banco(imagem, nota_fiscal):
+    # Converter o arquivo carregado para um objeto PIL Image, se necessário
+    if not isinstance(imagem, Image.Image):  # Verificar se já é uma imagem PIL
+        imagem = Image.open(imagem)
+
+    # Certificar-se de que a imagem está no modo RGB
     if imagem.mode != 'RGB':
         imagem = imagem.convert('RGB')
-
-    # Remove o fundo da imagem usando rembg
+    
+    # Converter a imagem para bytes para salvar no banco de dados
     img_byte_arr = io.BytesIO()
-    imagem.save(img_byte_arr, format='PNG')  # Converte para PNG para permitir transparência
+    imagem.save(img_byte_arr, format='PNG')
     img_byte_arr = img_byte_arr.getvalue()
-    img_tratada = remove(img_byte_arr)  # Remove o fundo usando rembg
 
+    # Conectar ao banco de dados e salvar
     conn = conectar_banco()
     cursor = conn.cursor()
     try:
@@ -72,7 +77,7 @@ def salvar_imagem_no_banco(imagem, nota_fiscal):
             INSERT INTO NotaFiscaisCanhotoSJRP (NumeroNota, Imagem, DataBipe)
             VALUES (?, ?, ?)
             """,
-            (nota_fiscal, pyodbc.Binary(img_tratada), datetime.datetime.now())
+            (nota_fiscal, pyodbc.Binary(img_byte_arr), datetime.datetime.now())
         )
         conn.commit()
         st.success("Imagem salva com sucesso no banco de dados.")
@@ -176,32 +181,34 @@ if pagina == "📸 Captura de Imagem":
             st.info("📱 Para alta resolução, capture a imagem externamente e faça o upload abaixo.")
             image_tratada = st.file_uploader("Envie a imagem do canhoto em alta resolução", type=["jpg", "jpeg", "png"])
 
-            # Opção de rotação
-            rotacao = st.radio(
-            "Selecione a orientação da imagem:",
-            ["Original", "Rotação 90°", "Rotação 180°", "Rotação 270°"],
-            horizontal=True
-            )
-            
             if image_tratada is not None:
+                # Carregar a imagem com PIL.Image
                 img_tratada = Image.open(image_tratada)
-            # Aplicação de rotação após a validação da imagem
-            if rotacao == "Rotação 90°":
-                img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_90)
-            elif rotacao == "Rotação 180°":
-                img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_180)
-            elif rotacao == "Rotação 270°":
-                img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_270)
+
+                # Opção de rotação
+                rotacao = st.radio(
+                    "Selecione a orientação da imagem:",
+                    ["Original", "Rotação 90°", "Rotação 180°", "Rotação 270°"],
+                    horizontal=True
+                )
+
+                # Aplicar rotação, se necessário
+                if rotacao == "Rotação 90°":
+                    img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_90)
+                elif rotacao == "Rotação 180°":
+                    img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_180)
+                elif rotacao == "Rotação 270°":
+                    img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_270)
+
+                # Exibir imagem após rotação
+                st.image(img_tratada, caption="Imagem Carregada via Upload", use_column_width=True)
                 
-            # Exibição e armazenamento da imagem
-            st.image(img_tratada, caption="Imagem Carregada via Upload", use_column_width=True)
-                    
                 # Botão para salvar imagem do upload
-            if st.button("☑️ Salvar Imagem do Upload"):
-                with st.spinner("Salvando imagem..."):
-                    salvar_imagem_no_banco(image_tratada, nota_fiscal)
-                    limpar_tela()
-                    streamlit_js_eval(js_expressions="parent.window.location.reload()")
+                if st.button("☑️ Salvar Imagem do Upload"):
+                    with st.spinner("Salvando imagem..."):
+                        salvar_imagem_no_banco(img_tratada, nota_fiscal)
+                        limpar_tela()
+                        streamlit_js_eval(js_expressions="parent.window.location.reload()")
 
     elif nota_fiscal:
         st.error("⚠️ Por favor, insira apenas números para o número da nota fiscal.")
