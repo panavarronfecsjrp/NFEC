@@ -174,7 +174,7 @@ if pagina == "📸 Captura de Imagem":
         else:
             # Upload de arquivo
             st.info("📱 Para alta resolução, capture a imagem externamente e faça o upload abaixo.")
-            image_data = st.file_uploader("Envie a imagem do canhoto em alta resolução", type=["jpg", "jpeg", "png"])
+            image_tratada = st.file_uploader("Envie a imagem do canhoto em alta resolução", type=["jpg", "jpeg", "png"])
 
             # Opção de rotação
             rotacao = st.radio(
@@ -183,28 +183,25 @@ if pagina == "📸 Captura de Imagem":
             horizontal=True
             )
             
-            # Aplica a rotação escolhida
+            if image_tratada is not None:
+                img_tratada = Image.open(image_tratada)
+            # Aplicação de rotação após a validação da imagem
             if rotacao == "Rotação 90°":
-                img_tratada = image_data.transpose(Image.Transpose.ROTATE_90)
+                img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_90)
             elif rotacao == "Rotação 180°":
-                img_tratada = image_data.transpose(Image.Transpose.ROTATE_180)
+                img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_180)
             elif rotacao == "Rotação 270°":
-                img_tratada = image_data.transpose(Image.Transpose.ROTATE_270)
+                img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_270)
                 
-            if image_data is not None:
-                img_tratada = Image.open(image_data)
-                st.image(
-                img_tratada,
-                caption="Imagem Carregada via Upload",
-                use_column_width=True,
-                )
+            # Exibição e armazenamento da imagem
+            st.image(img_tratada, caption="Imagem Carregada via Upload", use_column_width=True)
                     
                 # Botão para salvar imagem do upload
-                if st.button("☑️ Salvar Imagem do Upload"):
-                    with st.spinner("Salvando imagem..."):
-                        salvar_imagem_no_banco(image_data, nota_fiscal)
-                        limpar_tela()
-                        streamlit_js_eval(js_expressions="parent.window.location.reload()")
+            if st.button("☑️ Salvar Imagem do Upload"):
+                with st.spinner("Salvando imagem..."):
+                    salvar_imagem_no_banco(image_tratada, nota_fiscal)
+                    limpar_tela()
+                    streamlit_js_eval(js_expressions="parent.window.location.reload()")
 
     elif nota_fiscal:
         st.error("⚠️ Por favor, insira apenas números para o número da nota fiscal.")
