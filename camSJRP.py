@@ -214,7 +214,7 @@ if pagina == "📸 Captura de Imagem":
                         .stCamera > img {
                             width: 100%;
                             height: auto;
-                            max-height: 500px;
+                            max-height: 1500px;
                             object-fit: contain;
                         }
                     </style>
@@ -237,6 +237,13 @@ if pagina == "📸 Captura de Imagem":
                             new_size = (max_width, int(img_tratada.size[1] * ratio))
                             img_tratada = img_tratada.resize(new_size, Image.Resampling.LANCZOS)
 
+                        # Exibe a imagem
+                        st.image(
+                            img_tratada,
+                            caption="Imagem Capturada pela Câmera",
+                            use_column_width=True,
+                        )
+
                         # Opção de rotação
                         rotacao = st.radio(
                             "Selecione a orientação da imagem:",
@@ -251,14 +258,7 @@ if pagina == "📸 Captura de Imagem":
                             img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_180)
                         elif rotacao == "Rotação 270°":
                             img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_270)
-            
-                        # Exibe a imagem
-                        st.image(
-                            img_tratada,
-                            caption="Imagem Capturada pela Câmera",
-                            use_column_width=True,
-                        )
-            
+
                         # Botão para salvar imagem da câmera
                         if st.button("☑️ Salvar Imagem da Câmera"):
                             with st.spinner("Salvando imagem..."):
