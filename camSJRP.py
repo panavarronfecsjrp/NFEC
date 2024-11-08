@@ -11,7 +11,7 @@ import smtplib
 from email.message import EmailMessage
 from streamlit_js_eval import streamlit_js_eval
 import cv2
-from PIL import Image, ImageEnhance, ImageFilter  # Mantenha este import no topo do arquivo
+from PIL import Image
 
 # Carregar variáveis do arquivo .env
 load_dotenv()
@@ -32,28 +32,6 @@ st.set_page_config(page_title='Dinatec - Canhoto Nota Fiscal',
                    page_icon=':truck:',
                    initial_sidebar_state="collapsed",
                    )
-
-# Função para capturar imagem da câmera
-def capturar_imagem():
-    cap = cv2.VideoCapture(0)
-    st.info("Pressione 'Espaço' para capturar a imagem e 'Esc' para sair.")
-    img = None
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            st.error("Não foi possível acessar a câmera.")
-            break
-        cv2.imshow("Captura de Imagem", frame)
-        key = cv2.waitKey(1)
-        if key % 256 == 27:  # ESC
-            break
-        elif key % 256 == 32:  # Espaço
-            img = frame
-            break
-    cap.release()
-    cv2.destroyAllWindows()
-    return img
-
 
 # Função para validar e-mail
 def validar_email(email):
@@ -194,99 +172,39 @@ if pagina == "📸 Captura de Imagem":
         if nota_existente:
             st.warning("⚠️ Nota fiscal já gravada no banco de dados.")
         else:
-            # Criar duas colunas para câmera e upload
-            col1, col2 = st.columns(2)
+            # Upload de arquivo
+            st.info("📱 Para alta resolução, capture a imagem externamente e faça o upload abaixo.")
+            image_data = st.file_uploader("Envie a imagem do canhoto em alta resolução", type=["jpg", "jpeg", "png"])
 
-            with col1:
-                # Estilo CSS personalizado para melhorar a visualização da câmera
-                st.markdown("""
-                    <style>
-                        .stCamera {
-                            height: auto;
-                            width: 100%;
-                        }
-                        .stCamera > video {
-                            width: 100%;
-                            height: auto;
-                            max-height: 500px;
-                            object-fit: cover;
-                        }
-                        .stCamera > img {
-                            width: 100%;
-                            height: auto;
-                            max-height: 1500px;
-                            object-fit: contain;
-                        }
-                    </style>
-                """, unsafe_allow_html=True)
-                
-                camera_image = st.camera_input(
-                    "Tire uma foto com a câmera",
-                    key="camera"
-                )
-
-                if camera_image is not None:
-                    try:
-                        # Abre a imagem
-                        img_tratada = Image.open(camera_image)
-                        
-                        # Ajusta o tamanho máximo, se necessário
-                        max_width = 800
-                        if img_tratada.size[0] > max_width:
-                            ratio = max_width / img_tratada.size[0]
-                            new_size = (max_width, int(img_tratada.size[1] * ratio))
-                            img_tratada = img_tratada.resize(new_size, Image.Resampling.LANCZOS)
-
-                        # Exibe a imagem
-                        st.image(
-                            img_tratada,
-                            caption="Imagem Capturada pela Câmera",
-                            use_column_width=True,
-                        )
-
-                        # Opção de rotação
-                        rotacao = st.radio(
-                            "Selecione a orientação da imagem:",
-                            ["Original", "Rotação 90°", "Rotação 180°", "Rotação 270°"],
-                            horizontal=True
-                        )
+            # Opção de rotação
+            rotacao = st.radio(
+            "Selecione a orientação da imagem:",
+            ["Original", "Rotação 90°", "Rotação 180°", "Rotação 270°"],
+            horizontal=True
+            )
             
-                        # Aplica a rotação escolhida
-                        if rotacao == "Rotação 90°":
-                            img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_90)
-                        elif rotacao == "Rotação 180°":
-                            img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_180)
-                        elif rotacao == "Rotação 270°":
-                            img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_270)
-
-                        # Botão para salvar imagem da câmera
-                        if st.button("☑️ Salvar Imagem da Câmera"):
-                            with st.spinner("Salvando imagem..."):
-                                salvar_imagem_no_banco(img_tratada, nota_fiscal)
-                                limpar_tela()
-                                streamlit_js_eval(js_expressions="parent.window.location.reload()")
-                    except Exception as e:
-                        st.error(f"Erro ao processar a imagem: {str(e)}")
-
-            with col2:
-                # Upload de arquivo
-                st.info("📱 Para alta resolução, capture a imagem externamente e faça o upload abaixo.")
-                image_data = st.file_uploader("Envie a imagem do canhoto em alta resolução", type=["jpg", "jpeg", "png"])
+            # Aplica a rotação escolhida
+            if rotacao == "Rotação 90°":
+                img_tratada = image_data.transpose(Image.Transpose.ROTATE_90)
+            elif rotacao == "Rotação 180°":
+                img_tratada = image_data.transpose(Image.Transpose.ROTATE_180)
+            elif rotacao == "Rotação 270°":
+                img_tratada = image_data.transpose(Image.Transpose.ROTATE_270)
                 
-                if image_data is not None:
-                    img_tratada = Image.open(image_data)
-                    st.image(
-                        img_tratada,
-                        caption="Imagem Carregada via Upload",
-                        use_column_width=True,
-                    )
+            if image_data is not None:
+                img_tratada = Image.open(image_data)
+                st.image(
+                img_tratada,
+                caption="Imagem Carregada via Upload",
+                use_column_width=True,
+                )
                     
-                    # Botão para salvar imagem do upload
-                    if st.button("☑️ Salvar Imagem do Upload"):
-                        with st.spinner("Salvando imagem..."):
-                            salvar_imagem_no_banco(img_tratada, nota_fiscal)
-                            limpar_tela()
-                            streamlit_js_eval(js_expressions="parent.window.location.reload()")
+                # Botão para salvar imagem do upload
+                if st.button("☑️ Salvar Imagem do Upload"):
+                    with st.spinner("Salvando imagem..."):
+                        salvar_imagem_no_banco(image_data, nota_fiscal)
+                        limpar_tela()
+                        streamlit_js_eval(js_expressions="parent.window.location.reload()")
 
     elif nota_fiscal:
         st.error("⚠️ Por favor, insira apenas números para o número da nota fiscal.")
