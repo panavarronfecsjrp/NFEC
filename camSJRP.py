@@ -16,7 +16,6 @@ from PIL import Image
 # Carregar variáveis do arquivo .env
 load_dotenv()
 
-@st.cache_resource
 def conectar_banco():
     conn_str = (
         f"DRIVER={{ODBC Driver 17 for SQL Server}};"
