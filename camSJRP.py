@@ -203,8 +203,8 @@ if pagina == "📸 Captura de Imagem":
                 if st.button("☑️ Salvar Imagem do Upload"):
                     with st.spinner("Salvando imagem..."):
                         salvar_imagem_no_banco(img_tratada, nota_fiscal)
-                        #limpar_tela()
-                        #streamlit_js_eval(js_expressions="parent.window.location.reload()")
+                        limpar_tela()
+                        streamlit_js_eval(js_expressions="parent.window.location.reload()")
 
     elif nota_fiscal:
         st.error("⚠️ Por favor, insira apenas números para o número da nota fiscal.")
