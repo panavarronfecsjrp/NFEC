@@ -38,7 +38,6 @@ def validar_email(email):
     padrao_email = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
     return re.match(padrao_email, email) is not None
 
-@st.cache_data
 def verificar_nota_existente(nota_fiscal):
     conn = conectar_banco()
     cursor = conn.cursor()
@@ -53,24 +52,17 @@ def verificar_nota_existente(nota_fiscal):
     conn.close()
     return existe
 
-# Função para salvar imagem no banco de dados
 def salvar_imagem_no_banco(imagem, nota_fiscal):
-    # Converter o arquivo carregado para um objeto PIL Image, se necessário
-    if not isinstance(imagem, Image.Image):  # Verificar se já é uma imagem PIL
-        imagem = Image.open(imagem)
-
-    # Certificar-se de que a imagem está no modo RGB
-    if imagem.mode != 'RGB':
+    if imagem.mode == 'RGBA':
         imagem = imagem.convert('RGB')
-    
-    # Converter a imagem para bytes para salvar no banco de dados
+
     img_byte_arr = io.BytesIO()
-    imagem.save(img_byte_arr, format='PNG')
+    imagem.save(img_byte_arr, format='JPEG')
     img_byte_arr = img_byte_arr.getvalue()
 
-    # Conectar ao banco de dados e salvar
     conn = conectar_banco()
     cursor = conn.cursor()
+
     try:
         cursor.execute(
             """
@@ -80,7 +72,6 @@ def salvar_imagem_no_banco(imagem, nota_fiscal):
             (nota_fiscal, pyodbc.Binary(img_byte_arr), datetime.datetime.now())
         )
         conn.commit()
-        st.cache_data.clear()  # Limpa cache após salvar no banco
         st.success("Imagem salva com sucesso no banco de dados.")
     except Exception as e:
         st.error(f"Erro ao salvar imagem no banco de dados: {e}")
@@ -92,7 +83,7 @@ def limpar_tela():
     st.session_state.captura_concluida = True
     st.session_state.recarregar = True
 
-@st.cache_data
+
 def contar_canhotos():
     conn = conectar_banco()
     cursor = conn.cursor()
@@ -101,7 +92,7 @@ def contar_canhotos():
     conn.close()
     return quantidade
 
-@st.cache_data
+
 def consultar_canhoto(numero_nota):
     conn = conectar_banco()
     cursor = conn.cursor()
