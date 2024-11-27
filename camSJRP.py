@@ -1,30 +1,18 @@
+import pymysql  # Biblioteca para conexão ao MariaDB
+from oauth2client.service_account import ServiceAccountCredentials
+import datetime
+import io
+from PIL import Image
 import re
 import streamlit as st
-import pyodbc
-import datetime
-from PIL import Image
 from dotenv import load_dotenv
 import os
-import io
-from rembg import remove  # Biblioteca para remover fundo da imagem
 import smtplib
 from email.message import EmailMessage
 from streamlit_js_eval import streamlit_js_eval
-import cv2
-from PIL import Image
 
 # Carregar variáveis do arquivo .env
 load_dotenv()
-
-def conectar_banco():
-    conn_str = (
-        f"DRIVER={{ODBC Driver 17 for SQL Server}};"
-        f"SERVER={os.getenv('DB_SERVER')};"
-        f"DATABASE={os.getenv('DB_DATABASE')};"
-        f"UID={os.getenv('DB_USER')};"
-        f"PWD={os.getenv('DB_PASSWORD')}"
-    )
-    return pyodbc.connect(conn_str)
 
 # Configuração da página
 st.set_page_config(page_title='Dinatec - Canhoto Nota Fiscal', 
@@ -33,98 +21,172 @@ st.set_page_config(page_title='Dinatec - Canhoto Nota Fiscal',
                    initial_sidebar_state="collapsed",
                    )
 
+# Configuração para conectar ao MariaDB
+def conectar_banco():
+    try:
+        # Tentar conectar ao banco de dados MariaDB
+        conn = pymysql.connect(
+            host="186.224.105.220",
+            port=3306,
+            user="panavarr",
+            password="331sbA8g?",
+            database="panavarr_",
+            charset='utf8mb4'
+        )
+        return conn  # Retorne o objeto de conexão válido
+    except pymysql.MySQLError as e:
+        st.error(f"Erro ao conectar ao MariaDB: {e}")
+        return None  # Retorne None em caso de erro
+
 # Função para validar e-mail
 def validar_email(email):
+    # Expressão regular para validar o formato do e-mail
     padrao_email = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
     return re.match(padrao_email, email) is not None
 
+# Função para criar um divisor colorido usando CSS
+def colored_divider(color="#3498db", height="2px"):
+    st.markdown(
+        f"""
+        <hr style="border:none; border-top:{height} solid {color};" />
+        """,
+        unsafe_allow_html=True
+    )
+
+# Função para carregar e exibir a logomarca e a hora
+def exibir_logo(logo_path="logo.jpg"):
+    col1, col2 = st.columns([1, 2])  # Cria duas colunas para layout
+    with col1:
+        if os.path.exists(logo_path):
+            logo = Image.open(logo_path)
+            st.image(logo, width=300)  # Exibe a logomarca com largura ajustável
+    with col2:
+        quantidade_canhotos = contar_canhotos()
+        st.title("📌 Sistema Captura e Consulta Canhoto - Grupo Dinatec")
+
 def verificar_nota_existente(nota_fiscal):
     conn = conectar_banco()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        SELECT COUNT(*) FROM NotaFiscaisCanhotoSJRP
-        WHERE NumeroNota = ?
-        """,
-        (nota_fiscal,)
-    )
-    existe = cursor.fetchone()[0] > 0
-    conn.close()
-    return existe
+    if conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT COUNT(*) FROM notafiscaiscanhotosjrp
+                WHERE NumeroNota = %s
+                """,
+                (nota_fiscal,)
+            )
+            existe = cursor.fetchone()[0] > 0
+            return existe
+        except Exception as e:
+            st.error(f"Erro ao consultar a nota fiscal, favor informar novamente o numero da nota fiscal, e em caso de duvida procure o administrador do sistema. {e}")
+        finally:
+            cursor.close()
+            conn.close()
+    return False
 
 def salvar_imagem_no_banco(imagem, nota_fiscal):
-    if imagem.mode == 'RGBA':
-        imagem = imagem.convert('RGB')
-
-    img_byte_arr = io.BytesIO()
-    imagem.save(img_byte_arr, format='JPEG')
-    img_byte_arr = img_byte_arr.getvalue()
-
     conn = conectar_banco()
-    cursor = conn.cursor()
+    if conn:
+        cursor = conn.cursor()
+        try:
+            if imagem.mode == 'RGBA':
+                imagem = imagem.convert('RGB')
+            
+            # Convertendo imagem para formato binário
+            img_byte_arr = io.BytesIO()
+            imagem.save(img_byte_arr, format='JPEG')
+            imagem_binaria = img_byte_arr.getvalue()
 
-    try:
-        cursor.execute(
-            """
-            INSERT INTO NotaFiscaisCanhotoSJRP (NumeroNota, Imagem, DataBipe)
-            VALUES (?, ?, ?)
-            """,
-            (nota_fiscal, pyodbc.Binary(img_byte_arr), datetime.datetime.now())
-        )
-        conn.commit()
-        st.success("Imagem salva com sucesso no banco de dados.")
-    except Exception as e:
-        st.error(f"Erro ao salvar imagem no banco de dados: {e}")
-    finally:
-        conn.close()
+            # Obter a data/hora atual
+            data_atual = datetime.datetime.now()
+
+            # Inserindo no banco de dados
+            cursor.execute(
+                """
+                INSERT INTO notafiscaiscanhotosjrp (NumeroNota, DataBipe, CaminhoImagem, Imagem)
+                VALUES (%s, %s, %s, %s)
+                """,
+                (nota_fiscal, data_atual, "caminho_fake.jpg", imagem_binaria)
+            )
+            conn.commit()
+            st.success("Imagem salva com sucesso.")
+        except Exception as e:
+            st.error(f"Erro ao salvar imagem, favor procurar o administrador do sistema.  {e}")
+        finally:
+            cursor.close()
+            conn.close()
+
+def contar_canhotos():
+    conn = conectar_banco()  # Função que conecta ao MariaDB
+    if conn:  # Verifica se a conexão foi bem-sucedida
+        try:
+            with conn.cursor() as cursor:
+                # Consulta para contar o número de registros na tabela
+                cursor.execute("SELECT COUNT(*) FROM notafiscaiscanhotosjrp")
+                quantidade = cursor.fetchone()[0]
+                return quantidade
+        except Exception as e:
+            st.error(f"Erro ao contar canhotos, em caso de duvida procurar o administrador do sistema.{e}")
+            return 0
+        finally:
+            conn.close()  # Garante que a conexão será fechada
+    else:
+        st.error("Não foi possível conectar ao banco, favor procurar o administrador do sistema.")
+        return 0
 
 # Função para limpar a tela e atualizar o estado
 def limpar_tela():
     st.session_state.captura_concluida = True
     st.session_state.recarregar = True
 
-
-def contar_canhotos():
+# Consultar nota fiscal no MariaDB
+def consultar_nota(nota_fiscal):
     conn = conectar_banco()
-    cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM NotaFiscaisCanhotoSJRP")
-    quantidade = cursor.fetchone()[0]
-    conn.close()
-    return quantidade
+    if conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                """
+                SELECT Imagem, DataBipe
+                FROM notafiscaiscanhotosjrp
+                WHERE NumeroNota = %s
+                """,
+                (nota_fiscal,)
+            )
+            resultado = cursor.fetchone()
+            if resultado:
+                imagem_binaria, data_bipe = resultado
+                return imagem_binaria, data_bipe
+            return None, None
+        except Exception as e:
+            st.error(f"Erro ao consultar canhoto. {e}")
+        finally:
+            cursor.close()
+            conn.close()
+    return None, None
 
-
-def consultar_canhoto(numero_nota):
-    conn = conectar_banco()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        SELECT Imagem, DataBipe
-        FROM NotaFiscaisCanhotoSJRP
-        WHERE NumeroNota = ?
-        """,
-        (numero_nota,)
-    )
-    resultado = cursor.fetchone()
-    conn.close()
-    return resultado
-
-# Função para envio de e-mail pelo servidor cPanel
 def enviar_email_cpanel(destinatario, assunto, mensagem, imagem_bytes, nome_imagem):
+    # Configurações do servidor de e-mail no cPanel
     email_origem = os.getenv("EMAIL_ORIGEM")
     senha_email = os.getenv("EMAIL_SENHA")
     smtp_server = os.getenv("SMTP_SERVER")
     smtp_port = int(os.getenv("SMTP_PORT"))
 
+    # Configura o e-mail
     msg = EmailMessage()
     msg['From'] = email_origem
     msg['To'] = destinatario
     msg['Subject'] = assunto
     msg.set_content(mensagem, subtype='html')
-    msg.add_attachment(imagem_bytes, maintype='image', subtype='png', filename=nome_imagem)
 
+    # Anexa a imagem
+    msg.add_attachment(imagem_bytes, maintype='image', subtype='jpeg', filename=nome_imagem)
+
+    # Envia o e-mail usando TLS (porta 587)
     try:
         with smtplib.SMTP(smtp_server, smtp_port) as smtp:
-            smtp.starttls() 
+            smtp.starttls()  # Inicia a conexão TLS
             smtp.login(email_origem, senha_email)
             smtp.send_message(msg)
         st.success("E-mail enviado com sucesso!")
@@ -133,32 +195,44 @@ def enviar_email_cpanel(destinatario, assunto, mensagem, imagem_bytes, nome_imag
     except Exception as e:
         st.error(f"Ocorreu um erro inesperado ao enviar o e-mail: {e}")
 
-# Carregar informações de cabeçalho
-with st.spinner("Carregando informações iniciais..."):
-    quantidade_canhotos = contar_canhotos()
-
-# Interface do Streamlit
-st.title("📌 Sistema Captura e Consulta Canhoto - Grupo Dinatec")
+# Código para mover o texto para o rodapé
+footer = """
+<style>
+    .footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: white;
+        color: black;
+        text-align: center;
+        padding: 10px;
+    }
+    /* Garantindo que o rodapé fique no topo de outros elementos */
+    .main > div {
+        padding-bottom: 150px; /* ajuste conforme necessário */
+    }
+</style>
+<div class="footer">
+    Desenvolvido.: Panavarro | <a href="mailto:thiago@panavarro.com.br">Suporte</a>
+</div>
+"""
 
 # Exibir logomarca no topo da página
-def exibir_logo(logo_path="logo.jpg"):
-    col1, col2, col3 = st.columns([1, 2, 3])  
-    with col1:
-        if os.path.exists(logo_path):
-            logo = Image.open(logo_path)
-            st.image(logo, width=220)
-    with col2:
-        quantidade_canhotos = contar_canhotos()
-        st.markdown(f"<h3 style='text-align: center; font-weight:bold'>Qtd. Canhotos:<br>🔗{quantidade_canhotos}</h3>", unsafe_allow_html=True)
-
-    with col3:
-        st.markdown(f"<h3 style='text-align: center; font-weight:bold'>Empresa<br>São José do Rio Preto<br></h3>", unsafe_allow_html=True)
-
-
 exibir_logo("logo.jpg")
 
 # Menu de navegação
-pagina = st.sidebar.selectbox("Selecione a página", ["📸 Captura de Imagem", "🔍 Consulta de Canhoto", "📩 Envio de E-mail"])
+pagina = st.sidebar.selectbox("Selecione a página", ["📸 Captura de Imagem", "🔍 Consulta de Canhoto", "📩 Envio de E-mail", "🗂️ Salvar Nota Fiscal"])
+
+# Adicionar conteúdo à barra lateral
+with st.sidebar:
+    with st.container():  # Organiza o layout no sidebar
+        quantidade_canhotos = contar_canhotos()
+    st.markdown(
+        f"<h3 style='text-align: center; font-weight:bold'>"
+        f"🏭 Sao Jose do Rio Preto<br>Qtd. Canhotos:<br>🔗{quantidade_canhotos}</h3>", unsafe_allow_html=True)
+
+st.sidebar.divider()
 
 if pagina == "📸 Captura de Imagem":
     st.header("📸 Captura Imagem - Canhoto Nota Fiscal")
@@ -203,43 +277,52 @@ if pagina == "📸 Captura de Imagem":
                 if st.button("☑️ Salvar Imagem do Upload"):
                     with st.spinner("Salvando imagem..."):
                         salvar_imagem_no_banco(img_tratada, nota_fiscal)
-                        limpar_tela()
-                        streamlit_js_eval(js_expressions="parent.window.location.reload()")
 
     elif nota_fiscal:
         st.error("⚠️ Por favor, insira apenas números para o número da nota fiscal.")
 
 elif pagina == "🔍 Consulta de Canhoto":
     st.header("🔍 Consulta de Canhoto")
-    numero_nota = st.number_input("✅ Número Nota Fiscal para consulta", min_value=0, step=1, format="%d", placeholder="Digite número nota fiscal aqui")
+
+    # Entrada de dados para consulta
+    NumeroNota = st.number_input("✅ Número Nota Fiscal para consulta", min_value=0, step=1, format="%d", placeholder="Digite número nota fiscal aqui")
 
     if st.button("Consultar Canhoto"):
-        resultado = consultar_canhoto(numero_nota)
-        if resultado:
-            imagem_binaria, data_bipe = resultado
-            st.write(f"Data Bipe: {data_bipe}")
-            if imagem_binaria:
-                image = Image.open(io.BytesIO(imagem_binaria))
-                st.image(image, caption="Canhoto Consultado", use_column_width=True)
+        if NumeroNota:
+            resultado = consultar_nota(NumeroNota)
+            if resultado:
+                imagem_binaria, data_bipe = resultado
+                st.write(f"Data Bipe: {data_bipe}")
+
+                if imagem_binaria:
+                    image = Image.open(io.BytesIO(imagem_binaria))
+                    st.image(image, caption="Canhoto Consultado", use_column_width=True)
+                else:
+                    st.error("⚠️ Imagem não encontrada para essa nota fiscal.")
             else:
-                st.error("⚠️ Imagem não encontrada para essa nota fiscal.")
-        else:
-            st.error("⚠️ Nenhum registro encontrado para número nota fiscal fornecido.")
+                st.error("⚠️ Nenhum registro encontrado para número nota fiscal fornecido.")
 
 elif pagina == "📩 Envio de E-mail":
     st.header("📩 Envio de E-mail com Canhoto")
+
+# Campos para inserção de dados
     email_destino = st.text_input("🧑‍💼 Destinatário:", placeholder="Digite o e-mail do destinatário")
+# Validação do e-mail
     if email_destino and not validar_email(email_destino):
-        st.error("⚠️ O e-mail informado não é válido.")
+        st.error("⚠️ O e-mail informado não é válido. Por favor, insira um e-mail correto.")
     assunto_email = st.text_input("📝 Assunto do e-mail:", "Canhoto de Nota Fiscal")
     numero_nota = st.number_input("🗂️ Digite número Nota Fiscal:", min_value=0, step=1, format="%d", placeholder="Digite o número da Nota Fiscal para envio")
+    
+# Variável para armazenar o resultado da consulta
     resultado = None
 
+# Consulta o canhoto ao digitar o número da nota fiscal
     if numero_nota:
-        resultado = consultar_canhoto(numero_nota)
+        resultado = consultar_nota(numero_nota)
         if resultado:
             imagem_binaria, data_bipe = resultado
             st.write(f"Data do Bipe: {data_bipe}")
+
             if imagem_binaria:
                 image = Image.open(io.BytesIO(imagem_binaria))
                 st.image(image, caption="Canhoto da Nota Fiscal", use_column_width=True)
@@ -248,6 +331,7 @@ elif pagina == "📩 Envio de E-mail":
         else:
             st.error("⚠️ Nenhum registro encontrado para o número de nota fiscal fornecido.")
 
+# Botão para envio de e-mail
     if resultado and email_destino and assunto_email:
         if st.button("Enviar por E-mail"):
             with st.spinner("Enviando e-mail..."):
@@ -256,29 +340,33 @@ elif pagina == "📩 Envio de E-mail":
                     assunto=assunto_email,
                     mensagem=f"<p>Segue em anexo o canhoto da Nota Fiscal {numero_nota}.</p>",
                     imagem_bytes=io.BytesIO(imagem_binaria).getvalue(),
-                    nome_imagem=f"Canhoto_{numero_nota}.png"
+                    nome_imagem=f"Canhoto_{numero_nota}.jpeg"
                 )
                 limpar_tela()
+                streamlit_js_eval(js_expressions="parent.window.location.reload()")
+    else:
+        st.info("🖥️ Preencha e-mail, assunto e a nota fiscal para prosseguir.")
 
-# Rodapé da página
-footer = """
-<style>
-    .footer {
-        position: fixed;
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        background-color: white;
-        color: black;
-        text-align: center;
-        padding: 10px;
-    }
-    .main > div {
-        padding-bottom: 150px;
-    }
-</style>
-<div class="footer">
-    Desenvolvido.: Dinatec peças e serviços | <a href="mailto:thiago.panuto@dinatec.com.br">Suporte</a>
-</div>
-"""
+elif pagina == "🗂️ Salvar Nota Fiscal":
+# Entrada para o número da nota fiscal
+    nota_fiscal = st.text_input("✅ Digite o número da Nota Fiscal:", placeholder="Exemplo: 12345")
+
+# Consultar nota fiscal no SQL Server
+    if st.button("🔍 Consultar Nota Fiscal"):
+        if nota_fiscal:
+            imagem_binaria, data_bipe = consultar_nota(nota_fiscal)  # Consulta no SQL Server
+            if imagem_binaria:
+# Exibir a imagem e os dados
+                imagem = Image.open(io.BytesIO(imagem_binaria))
+                st.image(imagem, caption=f"Imagem da Nota Fiscal {nota_fiscal}", use_column_width=True)
+                st.write(f"Data de Bipe: {data_bipe}")#
+
+# Salvar no MariaDB
+                if st.button("💾 Salvar"):
+                    salvar_imagem_no_banco(imagem, nota_fiscal)
+            else:
+                st.error("⚠️ Nota fiscal não encontrada.")
+        else:
+            st.error("⚠️ Por favor, insira o número da nota fiscal.")
+
 st.markdown(footer, unsafe_allow_html=True)
