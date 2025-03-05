@@ -12,6 +12,7 @@ from streamlit_js_eval import streamlit_js_eval
 import cv2
 from pyzbar.pyzbar import decode
 import numpy as np
+import easyocr
 
 # Carregar variáveis do arquivo .env
 load_dotenv()
@@ -199,11 +200,21 @@ def enviar_email_cpanel(destinatario, assunto, mensagem, imagem_bytes, nome_imag
 
 # Função para ler o código de barras
 def ler_codigo_barras(imagem):
-    # Decodifica os códigos de barras na imagem
-    decoded_objects = decode(imagem)
-    for obj in decoded_objects:
-        # Retorna o texto do código de barras
-        return obj.data.decode('utf-8')
+    # Converte a imagem para escala de cinza
+    gray = cv2.cvtColor(np.array(imagem), cv2.COLOR_RGB2GRAY)
+    
+    # Inicializa o leitor OCR
+    reader = easyocr.Reader(['pt'])
+    
+    # Tenta ler o texto na imagem
+    results = reader.readtext(gray)
+    
+    # Retorna o primeiro texto encontrado que pareça ser um número de nota fiscal
+    for (bbox, text, prob) in results:
+        # Filtra para pegar apenas números que pareçam ser número de nota fiscal
+        if text.isdigit() and len(text) > 5:
+            return text
+    
     return None
 
 # Função para capturar e decodificar o código de barras
