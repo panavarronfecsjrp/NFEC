@@ -1,5 +1,4 @@
 import pymysql
-from oauth2client.service_account import ServiceAccountCredentials
 import datetime
 import io
 from PIL import Image
@@ -85,7 +84,7 @@ def verificar_nota_existente(nota_fiscal):
             conn.close()
     return False
 
-def salvar_imagem_no_banco(imagem, nota_fiscal):
+def salvar_imagem_no_banco(imagem, nota_fiscal, info_envio):
     conn = conectar_banco()
     if conn:
         cursor = conn.cursor()
@@ -104,10 +103,10 @@ def salvar_imagem_no_banco(imagem, nota_fiscal):
             # Inserindo no banco de dados
             cursor.execute(
                 """
-                INSERT INTO notafiscaiscanhotosjrp (NumeroNota, DataBipe, CaminhoImagem, Imagem)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO notafiscaiscanhotosjrp (NumeroNota, DataBipe, CaminhoImagem, Imagem, InfoEnvio)
+                VALUES (%s, %s, %s, %s, %s)
                 """,
-                (nota_fiscal, data_atual, "caminho_fake.jpg", imagem_binaria)
+                (nota_fiscal, data_atual, "caminho_fake.jpg", imagem_binaria, info_envio)
             )
             conn.commit()
             st.success("Imagem salva com sucesso.")
@@ -229,7 +228,7 @@ footer = """
         box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
         z-index: 1000;
         transition: transform 0.3s;
-        text-decoration: none;
+        text-decoration: none !important;
         border: none;
     }
 
@@ -252,6 +251,8 @@ footer = """
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 """
 
+
+
 # Exibir logomarca no topo da página
 exibir_logo("logo.jpg")
 
@@ -272,7 +273,7 @@ if pagina == "📸 Captura de Imagem":
     st.header("📸 Captura Imagem - Canhoto Nota Fiscal")
 
     # Entrada de dados para o número da nota fiscal com validação
-    nota_fiscal = st.text_input("☑️ Número da Nota Fiscal", max_chars=50, placeholder="Digite o número da nota fiscal aqui")
+    nota_fiscal = st.number_input("☑️ Número da Nota Fiscal", min_value=0, step=1, format="%d", placeholder="Digite o número da nota fiscal aqui")
 
     # Verificar se a nota fiscal existe e exibir o resultado
     if nota_fiscal and nota_fiscal.isdigit():
@@ -305,14 +306,27 @@ if pagina == "📸 Captura de Imagem":
                     img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_270)
 
                 # Exibir imagem após rotação
-                st.image(img_tratada, caption="Imagem Carregada via Upload", use_column_width=True)
+                st.image(img_tratada, caption="Imagem Carregada via Upload", use_container_width=True)
                 
+                # Adicionar checkbox para selecionar Motorista ou Transportadora
+                tipo_envio = st.radio("Selecione o tipo de envio:", ["Motorista", "Transportadora"])
+
+                # Campo condicional para nome do motorista
+                nome_motorista = ""
+                if tipo_envio == "Motorista":
+                    nome_motorista = st.text_input("Nome do Motorista:", placeholder="Digite o nome do motorista aqui", key="motorista")
+
                 # Botão para salvar imagem do upload
                 if st.button("☑️ Salvar Imagem do Upload"):
-                    with st.spinner("Salvando imagem..."):
-                        salvar_imagem_no_banco(img_tratada, nota_fiscal)
-                        limpar_tela()
-                        streamlit_js_eval(js_expressions="parent.window.location.reload()")                        
+                    if tipo_envio == "Motorista" and not nome_motorista:
+                        st.error("Por favor, insira o nome do motorista.")
+                    else:
+                        with st.spinner("Salvando imagem..."):
+                            # Verifica se é motorista e adiciona o nome, se não, adiciona 'Transportadora'
+                            info_envio = nome_motorista if tipo_envio == "Motorista" else "Transportadora"
+                            salvar_imagem_no_banco(img_tratada, nota_fiscal, info_envio)  # Adiciona o terceiro parâmetro
+                            limpar_tela()
+                            streamlit_js_eval(js_expressions="parent.window.location.reload()")
 
     elif nota_fiscal:
         st.error("⚠️ Por favor, insira apenas números para o número da nota fiscal.")
@@ -332,7 +346,7 @@ elif pagina == "🔍 Consulta de Canhoto":
 
                 if imagem_binaria:
                     image = Image.open(io.BytesIO(imagem_binaria))
-                    st.image(image, caption="Canhoto Consultado", use_column_width=True)
+                    st.image(image, caption="Canhoto Consultado", use_container_width=True)
                 else:
                     st.error("⚠️ Imagem não encontrada para essa nota fiscal.")
             else:
@@ -361,7 +375,7 @@ elif pagina == "📩 Envio de E-mail":
 
             if imagem_binaria:
                 image = Image.open(io.BytesIO(imagem_binaria))
-                st.image(image, caption="Canhoto da Nota Fiscal", use_column_width=True)
+                st.image(image, caption="Canhoto da Nota Fiscal", use_container_width=True)
             else:
                 st.error("⚠️ Imagem não encontrada para essa nota fiscal.")
         else:
@@ -383,26 +397,7 @@ elif pagina == "📩 Envio de E-mail":
     else:
         st.info("🖥️ Preencha e-mail, assunto e a nota fiscal para prosseguir.")
 
-elif pagina == "🗂️ Salvar Nota Fiscal":
-# Entrada para o número da nota fiscal
-    nota_fiscal = st.text_input("✅ Digite o número da Nota Fiscal:", placeholder="Exemplo: 12345")
-
-# Consultar nota fiscal no SQL Server
-    if st.button("🔍 Consultar Nota Fiscal"):
-        if nota_fiscal:
-            imagem_binaria, data_bipe = consultar_nota(nota_fiscal)  # Consulta no SQL Server
-            if imagem_binaria:
-# Exibir a imagem e os dados
-                imagem = Image.open(io.BytesIO(imagem_binaria))
-                st.image(imagem, caption=f"Imagem da Nota Fiscal {nota_fiscal}", use_column_width=True)
-                st.write(f"Data de Bipe: {data_bipe}")#
-
-# Salvar no MariaDB
-                if st.button("💾 Salvar"):
-                    salvar_imagem_no_banco(imagem, nota_fiscal)
-            else:
-                st.error("⚠️ Nota fiscal não encontrada.")
-        else:
-            st.error("⚠️ Por favor, insira o número da nota fiscal.")
+if st.button("📸 Abrir Câmera"):
+    st.camera_input("Capture a imagem")
 
 st.markdown(footer, unsafe_allow_html=True)
