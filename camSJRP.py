@@ -276,7 +276,7 @@ if pagina == "📸 Captura de Imagem":
     nota_fiscal = st.number_input("☑️ Número da Nota Fiscal", min_value=0, step=1, format="%d", placeholder="Digite o número da nota fiscal aqui")
 
     # Verificar se a nota fiscal existe e exibir o resultado
-    if nota_fiscal and nota_fiscal.isdigit():
+    if nota_fiscal > 0:  # Verifica se a nota fiscal é um número positivo
         nota_existente = verificar_nota_existente(nota_fiscal)
         
         if nota_existente:
@@ -327,9 +327,6 @@ if pagina == "📸 Captura de Imagem":
                             salvar_imagem_no_banco(img_tratada, nota_fiscal, info_envio)  # Adiciona o terceiro parâmetro
                             limpar_tela()
                             streamlit_js_eval(js_expressions="parent.window.location.reload()")
-
-    elif nota_fiscal:
-        st.error("⚠️ Por favor, insira apenas números para o número da nota fiscal.")
 
 elif pagina == "🔍 Consulta de Canhoto":
     st.header("🔍 Consulta de Canhoto")
