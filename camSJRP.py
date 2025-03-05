@@ -9,6 +9,9 @@ import os
 import smtplib
 from email.message import EmailMessage
 from streamlit_js_eval import streamlit_js_eval
+import cv2
+from pyzbar.pyzbar import decode
+import numpy as np
 
 # Carregar variáveis do arquivo .env
 load_dotenv()
@@ -194,6 +197,51 @@ def enviar_email_cpanel(destinatario, assunto, mensagem, imagem_bytes, nome_imag
     except Exception as e:
         st.error(f"Ocorreu um erro inesperado ao enviar o e-mail: {e}")
 
+# Função para ler o código de barras
+def ler_codigo_barras(imagem):
+    # Decodifica os códigos de barras na imagem
+    decoded_objects = decode(imagem)
+    for obj in decoded_objects:
+        # Retorna o texto do código de barras
+        return obj.data.decode('utf-8')
+    return None
+
+# Função para capturar e decodificar o código de barras
+def capturar_codigo_barras():
+    # Inicia a captura de vídeo
+    cap = cv2.VideoCapture(0)  # 0 para a câmera padrão
+    stframe = st.empty()  # Cria um espaço vazio para exibir o vídeo
+
+    # Gera uma chave única para esta instância de captura
+    unique_key = f"parar_captura_{datetime.datetime.now().timestamp()}"
+
+    while True:
+        ret, frame = cap.read()  # Lê um frame da câmera
+        if not ret:
+            st.error("Erro ao acessar a câmera.")
+            break
+
+        # Decodifica os códigos de barras no frame
+        decoded_objects = decode(frame)
+        for obj in decoded_objects:
+            # Desenha um retângulo ao redor do código de barras
+            (x, y, w, h) = obj.rect
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            # Retorna o texto do código de barras
+            numero_nota = obj.data.decode('utf-8')
+            st.success(f"Número da Nota Fiscal reconhecido: {numero_nota}")
+            cap.release()  # Libera a câmera
+            return numero_nota  # Retorna o número da nota fiscal
+
+        # Exibe o frame na interface do Streamlit
+        stframe.image(frame, channels="BGR", use_container_width=True)
+
+        # Para a captura se o usuário clicar em um botão
+        if st.button("Parar Captura", key=unique_key):
+            break
+
+    cap.release()  # Libera a câmera
+
 # Código para mover o texto para o rodapé
 footer = """
 <style>
@@ -271,6 +319,13 @@ st.sidebar.divider()
 
 if pagina == "📸 Captura de Imagem":
     st.header("📸 Captura Imagem - Canhoto Nota Fiscal")
+
+    if st.button("📸 Iniciar Captura Automática"):
+        numero_nota = capturar_codigo_barras()
+        if numero_nota:
+            # Aqui você pode usar o número da nota fiscal para verificar se existe no banco de dados
+            nota_existente = verificar_nota_existente(numero_nota)
+            # Continue com o fluxo normal...
 
     # Entrada de dados para o número da nota fiscal com validação
     nota_fiscal = st.number_input("☑️ Número da Nota Fiscal", min_value=0, step=1, format="%d", placeholder="Digite o número da nota fiscal aqui")
