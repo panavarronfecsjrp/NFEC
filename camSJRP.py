@@ -9,10 +9,6 @@ import os
 import smtplib
 from email.message import EmailMessage
 from streamlit_js_eval import streamlit_js_eval
-import cv2
-import numpy as np
-from pyzbar.pyzbar import decode
-
 
 # Carregar variáveis do arquivo .env
 load_dotenv()
@@ -55,9 +51,6 @@ def colored_divider(color="#3498db", height="2px"):
         """,
         unsafe_allow_html=True
     )
-
-
-
 
 # Função para carregar e exibir a logomarca e a hora
 def exibir_logo(logo_path="logo.jpg"):
@@ -145,59 +138,6 @@ def contar_canhotos():
 def limpar_tela():
     st.session_state.captura_concluida = True
     st.session_state.recarregar = True
-
-
-def camera_barcode():
-    """
-    Função para capturar código de barras em tempo real usando a câmera
-    """
-    st.title("📷 Leitor de Código de Barras em Tempo Real")
-    
-    # Inicializa a captura de vídeo
-    cap = cv2.VideoCapture(0)
-    
-    # Cria um placeholder para exibir o vídeo
-    frame_placeholder = st.empty()
-    
-    # Botão para parar a captura
-    stop_button = st.button("Parar Captura")
-    
-    while not stop_button:
-        # Captura frame por frame
-        ret, frame = cap.read()
-        
-        if not ret:
-            st.error("Falha ao capturar imagem da câmera")
-            break
-        
-        # Tenta ler código de barras no frame atual
-        frame_with_barcode, barcode_type, barcode_data = read_barcode(frame)
-        
-        if frame_with_barcode is not None:
-            # Converte o frame do OpenCV para formato PIL para exibição no Streamlit
-            frame_rgb = cv2.cvtColor(frame_with_barcode, cv2.COLOR_BGR2RGB)
-            pil_image = Image.fromarray(frame_rgb)
-            
-            # Exibe o frame com o código de barras
-            frame_placeholder.image(pil_image, caption=f"Código de Barras: {barcode_type}")
-            
-            # Mostra os dados do código de barras
-            st.write(f"Dados do Código de Barras: {barcode_data}")
-            
-            # Opcional: Parar após encontrar um código de barras
-            break
-        
-        # Converte o frame do OpenCV para formato PIL para exibição no Streamlit
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        pil_image = Image.fromarray(frame_rgb)
-        
-        # Atualiza o frame no placeholder
-        frame_placeholder.image(pil_image, caption="Capturando...")
-    
-    # Libera a captura de vídeo
-    cap.release()
-
-
 
 # Consultar nota fiscal no MariaDB
 def consultar_nota(nota_fiscal):
@@ -333,10 +273,10 @@ if pagina == "📸 Captura de Imagem":
     st.header("📸 Captura Imagem - Canhoto Nota Fiscal")
 
     # Entrada de dados para o número da nota fiscal com validação
-    nota_fiscal = st.number_input("☑️ Número da Nota Fiscal", min_value=0, step=1, format="%d", placeholder="Digite o número da nota fiscal aqui")
+    nota_fiscal = st.text_input("☑️ Número da Nota Fiscal", placeholder="Digite o número da nota fiscal aqui")
 
     # Verificar se a nota fiscal existe e exibir o resultado
-    if nota_fiscal > 0:
+    if nota_fiscal and nota_fiscal.isdigit():
         nota_existente = verificar_nota_existente(nota_fiscal)
         
         if nota_existente:
@@ -387,6 +327,9 @@ if pagina == "📸 Captura de Imagem":
                             salvar_imagem_no_banco(img_tratada, nota_fiscal, info_envio)  # Adiciona o terceiro parâmetro
                             limpar_tela()
                             streamlit_js_eval(js_expressions="parent.window.location.reload()")
+
+    elif nota_fiscal:
+        st.error("⚠️ Por favor, insira apenas números para o número da nota fiscal.")
 
 elif pagina == "🔍 Consulta de Canhoto":
     st.header("🔍 Consulta de Canhoto")
@@ -453,4 +396,8 @@ elif pagina == "📩 Envio de E-mail":
                 streamlit_js_eval(js_expressions="parent.window.location.reload()")
     else:
         st.info("🖥️ Preencha e-mail, assunto e a nota fiscal para prosseguir.")
+
+if st.button("📸 Abrir Câmera"):
+    st.camera_input("Capture a imagem")
+
 st.markdown(footer, unsafe_allow_html=True)
