@@ -10,12 +10,8 @@ from email.message import EmailMessage
 from streamlit_js_eval import streamlit_js_eval
 import cv2
 import numpy as np
-import pyzbar.pyzbar as pyzbar
-from pyzbar.pyzbar import decode
 import os
 os.environ["PATH"] += os.pathsep + r"C:\Program Files\ZBar\bin"  # Windows
-
-
 
 # Carregar variáveis do arquivo .env
 load_dotenv()
@@ -58,115 +54,6 @@ def colored_divider(color="#3498db", height="2px"):
         """,
         unsafe_allow_html=True
     )
-
-
-def read_barcode(image):
-    """
-    Função para ler códigos de barras em uma imagem
-    
-    Args:
-        image (numpy.ndarray): Imagem para leitura de código de barras
-    
-    Returns:
-        tuple: Dados do código de barras, tipo de código de barras
-    """
-    # Converte a imagem para escala de cinza
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
-    # Decodifica os códigos de barras na imagem
-    barcodes = pyzbar.decode(gray)
-    
-    # Se nenhum código de barras for encontrado, retorna None
-    if not barcodes:
-        return None, None
-    
-    # Processa o primeiro código de barras encontrado
-    for barcode in barcodes:
-        # Decodifica os dados do código de barras
-        barcode_data = barcode.data.decode("utf-8")
-        barcode_type = barcode.type
-        
-        return barcode_data, barcode_type
-    
-    return None, None
-
-
-def camera_barcode_nota_fiscal():
-    """
-    Função para capturar código de barras em tempo real usando a câmera
-    para leitura do número da nota fiscal
-    """
-    cap = cv2.VideoCapture(0)
-    
-    # Cria um placeholder para exibir o vídeo
-    frame_placeholder = st.empty()
-    
-    # Cria um placeholder para mensagens
-    message_placeholder = st.empty()
-    
-    # Botão para parar a captura
-    stop_button = st.button("Parar Captura")
-    
-    while not stop_button:
-        # Captura frame por frame
-        ret, frame = cap.read()
-        
-        if not ret:
-            st.error("Falha ao capturar imagem da câmera")
-            break
-        
-        # Converte o frame do OpenCV para formato RGB para exibição
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # Exibe o frame atual
-        frame_placeholder.image(frame_rgb, caption="Posicione o código de barras")
-        
-        # Tenta ler código de barras no frame atual
-        barcode_data, barcode_type = read_barcode(frame)
-        
-        if barcode_data:
-            # Destaca o código de barras encontrado
-            message_placeholder.success(f"Código de Barras Encontrado: {barcode_data}")
-            
-            # Fecha a captura de vídeo
-            cap.release()
-            
-            # Retorna o dado do código de barras
-            return barcode_data
-        
-    # Libera a captura de vídeo
-    cap.release()
-    return None
-
-def upload_barcode():
-    """
-    Função para upload de imagem e leitura de código de barras
-    """
-    st.title("📤 Upload de Imagem para Leitura de Código de Barras")
-    
-    # Upload de arquivo
-    uploaded_file = st.file_uploader("Escolha uma imagem", 
-                                     type=["jpg", "jpeg", "png", "bmp"])
-    
-    if uploaded_file is not None:
-        # Lê a imagem usando OpenCV
-        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-        
-        # Tenta ler o código de barras
-        img_with_barcode, barcode_type, barcode_data = read_barcode(img)
-        
-        if img_with_barcode is not None:
-            # Converte para RGB para exibição correta
-            img_rgb = cv2.cvtColor(img_with_barcode, cv2.COLOR_BGR2RGB)
-            
-            # Exibe a imagem
-            st.image(img_rgb, caption=f"Código de Barras Detectado: {barcode_type}")
-            
-            # Mostra os dados do código de barras
-            st.success(f"Dados do Código de Barras: {barcode_data}")
-        else:
-            st.warning("Nenhum código de barras encontrado na imagem.")
 
 # Função para carregar e exibir a logomarca e a hora
 def exibir_logo(logo_path="logo.jpg"):
@@ -254,56 +141,6 @@ def contar_canhotos():
 def limpar_tela():
     st.session_state.captura_concluida = True
     st.session_state.recarregar = True
-
-
-def camera_barcode():
-    """
-    Função para capturar código de barras em tempo real usando a câmera
-    """
-    cap = cv2.VideoCapture(0)
-    
-    # Cria um placeholder para exibir o vídeo
-    frame_placeholder = st.empty()
-    
-    # Botão para parar a captura
-    stop_button = st.button("Parar Captura")
-    
-    while not stop_button:
-        # Captura frame por frame
-        ret, frame = cap.read()
-        
-        if not ret:
-            st.error("Falha ao capturar imagem da câmera")
-            break
-        
-        # Tenta ler código de barras no frame atual
-        frame_with_barcode, barcode_type, barcode_data = read_barcode(frame)
-        
-        if frame_with_barcode is not None:
-            # Converte o frame do OpenCV para formato PIL para exibição no Streamlit
-            frame_rgb = cv2.cvtColor(frame_with_barcode, cv2.COLOR_BGR2RGB)
-            pil_image = Image.fromarray(frame_rgb)
-            
-            # Exibe o frame com o código de barras
-            frame_placeholder.image(pil_image, caption=f"Código de Barras: {barcode_type}")
-            
-            # Mostra os dados do código de barras
-            st.write(f"Dados do Código de Barras: {barcode_data}")
-            
-            # Opcional: Parar após encontrar um código de barras
-            break
-        
-        # Converte o frame do OpenCV para formato PIL para exibição no Streamlit
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        pil_image = Image.fromarray(frame_rgb)
-        
-        # Atualiza o frame no placeholder
-        frame_placeholder.image(pil_image, caption="Capturando...")
-    
-    # Libera a captura de vídeo
-    cap.release()
-
-
 
 # Consultar nota fiscal no MariaDB
 def consultar_nota(nota_fiscal):
@@ -416,8 +253,6 @@ footer = """
 </a>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 """
-
-
 
 # Exibir logomarca no topo da página
 exibir_logo("logo.jpg")
