@@ -5,13 +5,16 @@ from PIL import Image
 import re
 import streamlit as st
 from dotenv import load_dotenv
-import os
 import smtplib
 from email.message import EmailMessage
 from streamlit_js_eval import streamlit_js_eval
 import cv2
 import numpy as np
 import pyzbar.pyzbar as pyzbar
+from pyzbar.pyzbar import decode
+import os
+os.environ["PATH"] += os.pathsep + r"C:\Program Files\ZBar\bin"  # Windows
+
 
 
 # Carregar variáveis do arquivo .env
