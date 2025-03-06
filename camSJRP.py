@@ -11,7 +11,7 @@ from email.message import EmailMessage
 from streamlit_js_eval import streamlit_js_eval
 import cv2
 import numpy as np
-import pyzbar.pyzbar as pyzbar
+from pyzbar.pyzbar import decode
 
 
 # Carregar variáveis do arquivo .env
@@ -57,113 +57,7 @@ def colored_divider(color="#3498db", height="2px"):
     )
 
 
-def read_barcode(image):
-    """
-    Função para ler códigos de barras em uma imagem
-    
-    Args:
-        image (numpy.ndarray): Imagem para leitura de código de barras
-    
-    Returns:
-        tuple: Dados do código de barras, tipo de código de barras
-    """
-    # Converte a imagem para escala de cinza
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
-    # Decodifica os códigos de barras na imagem
-    barcodes = pyzbar.decode(gray)
-    
-    # Se nenhum código de barras for encontrado, retorna None
-    if not barcodes:
-        return None, None
-    
-    # Processa o primeiro código de barras encontrado
-    for barcode in barcodes:
-        # Decodifica os dados do código de barras
-        barcode_data = barcode.data.decode("utf-8")
-        barcode_type = barcode.type
-        
-        return barcode_data, barcode_type
-    
-    return None, None
 
-
-def camera_barcode_nota_fiscal():
-    """
-    Função para capturar código de barras em tempo real usando a câmera
-    para leitura do número da nota fiscal
-    """
-    cap = cv2.VideoCapture(0)
-    
-    # Cria um placeholder para exibir o vídeo
-    frame_placeholder = st.empty()
-    
-    # Cria um placeholder para mensagens
-    message_placeholder = st.empty()
-    
-    # Botão para parar a captura
-    stop_button = st.button("Parar Captura")
-    
-    while not stop_button:
-        # Captura frame por frame
-        ret, frame = cap.read()
-        
-        if not ret:
-            st.error("Falha ao capturar imagem da câmera")
-            break
-        
-        # Converte o frame do OpenCV para formato RGB para exibição
-        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # Exibe o frame atual
-        frame_placeholder.image(frame_rgb, caption="Posicione o código de barras")
-        
-        # Tenta ler código de barras no frame atual
-        barcode_data, barcode_type = read_barcode(frame)
-        
-        if barcode_data:
-            # Destaca o código de barras encontrado
-            message_placeholder.success(f"Código de Barras Encontrado: {barcode_data}")
-            
-            # Fecha a captura de vídeo
-            cap.release()
-            
-            # Retorna o dado do código de barras
-            return barcode_data
-        
-    # Libera a captura de vídeo
-    cap.release()
-    return None
-
-def upload_barcode():
-    """
-    Função para upload de imagem e leitura de código de barras
-    """
-    st.title("📤 Upload de Imagem para Leitura de Código de Barras")
-    
-    # Upload de arquivo
-    uploaded_file = st.file_uploader("Escolha uma imagem", 
-                                     type=["jpg", "jpeg", "png", "bmp"])
-    
-    if uploaded_file is not None:
-        # Lê a imagem usando OpenCV
-        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-        img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-        
-        # Tenta ler o código de barras
-        img_with_barcode, barcode_type, barcode_data = read_barcode(img)
-        
-        if img_with_barcode is not None:
-            # Converte para RGB para exibição correta
-            img_rgb = cv2.cvtColor(img_with_barcode, cv2.COLOR_BGR2RGB)
-            
-            # Exibe a imagem
-            st.image(img_rgb, caption=f"Código de Barras Detectado: {barcode_type}")
-            
-            # Mostra os dados do código de barras
-            st.success(f"Dados do Código de Barras: {barcode_data}")
-        else:
-            st.warning("Nenhum código de barras encontrado na imagem.")
 
 # Função para carregar e exibir a logomarca e a hora
 def exibir_logo(logo_path="logo.jpg"):
@@ -257,6 +151,9 @@ def camera_barcode():
     """
     Função para capturar código de barras em tempo real usando a câmera
     """
+    st.title("📷 Leitor de Código de Barras em Tempo Real")
+    
+    # Inicializa a captura de vídeo
     cap = cv2.VideoCapture(0)
     
     # Cria um placeholder para exibir o vídeo
@@ -435,49 +332,10 @@ st.sidebar.divider()
 if pagina == "📸 Captura de Imagem":
     st.header("📸 Captura Imagem - Canhoto Nota Fiscal")
 
-    # Inicializa a variável nota_fiscal no session_state se não existir
-    if 'nota_fiscal' not in st.session_state:
-        st.session_state.nota_fiscal = 0
+    # Entrada de dados para o número da nota fiscal com validação
+    nota_fiscal = st.number_input("☑️ Número da Nota Fiscal", min_value=0, step=1, format="%d", placeholder="Digite o número da nota fiscal aqui")
 
-    # Coluna para entrada de número da nota fiscal e botão de leitura de código de barras
-    col1, col = st.columns(2)
-    
-    with col1:
-        # Entrada de dados para o número da nota fiscal com validação
-        # Usa o valor do session_state como valor inicial
-        nota_fiscal = st.number_input(
-            "☑️ Número da Nota Fiscal", 
-            min_value=0, 
-            step=1, 
-            format="%d", 
-            placeholder="Digite o número da nota fiscal aqui",
-            value=st.session_state.nota_fiscal
-        )
-    
-        # Botão para abrir leitor de código de barras
-        scan_barcode = st.button("🔍 Ler Código de Barras")
-    
-    # Lógica de leitura do código de barras
-    if scan_barcode:
-        # Abre a câmera para leitura do código de barras
-        barcode_result = camera_barcode_nota_fiscal()
-        
-        if barcode_result:
-            # Tenta converter o resultado para inteiro
-            try:
-                # Converte para inteiro e atualiza o session_state
-                nota_fiscal_scaneada = int(barcode_result)
-                st.session_state.nota_fiscal = nota_fiscal_scaneada
-                
-                # Força uma nova renderização
-                st.rerun()
-            except ValueError:
-                st.warning("Não foi possível converter o código de barras para número da nota fiscal.")
-
-    # Atualiza o session_state com o valor atual do input
-    st.session_state.nota_fiscal = nota_fiscal
-
-    # Resto do código de captura de imagem permanece o mesmo
+    # Verificar se a nota fiscal existe e exibir o resultado
     if nota_fiscal > 0:
         nota_existente = verificar_nota_existente(nota_fiscal)
         
@@ -488,7 +346,6 @@ if pagina == "📸 Captura de Imagem":
             st.info("📱 Para alta resolução, capture a imagem externamente e faça o upload abaixo.")
             image_tratada = st.file_uploader("Envie a imagem do canhoto em alta resolução", type=["jpg", "jpeg", "png"])
 
-            # Restante do código de captura de imagem permanece igual
             if image_tratada is not None:
                 # Carregar a imagem com PIL.Image
                 img_tratada = Image.open(image_tratada)
