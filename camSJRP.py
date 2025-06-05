@@ -257,7 +257,10 @@ footer = """
 exibir_logo("logo.jpg")
 
 # Menu de navegação
-pagina = st.sidebar.selectbox("Selecione a página", ["📸 Captura de Imagem", "🔍 Consulta de Canhoto", "📩 Envio de E-mail", "🗂️ Salvar Nota Fiscal"])
+pagina = st.sidebar.selectbox(
+    "Selecione a página",
+    ["📸 Captura de Imagem", "🔍 Consulta de Canhoto", "📩 Envio de E-mail"],
+)
 
 # Adicionar conteúdo à barra lateral
 with st.sidebar:
