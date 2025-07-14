@@ -9,7 +9,7 @@ import os
 import smtplib
 from email.message import EmailMessage
 from streamlit_js_eval import streamlit_js_eval
-
+import mysql.connector
 # Carregar variáveis do arquivo .env
 load_dotenv()
 
@@ -20,21 +20,19 @@ st.set_page_config(page_title='Dinatec - Canhoto Nota Fiscal',
                    initial_sidebar_state="collapsed",
                    )
 
-# Configuração para conectar ao MariaDB
 def conectar_banco():
     try:
-        # Tentar conectar ao banco de dados MariaDB
-        conn = pymysql.connect(
-            host="186.224.105.220",
-            port=3306,
-            user="panavarr",
-            password="331sbA8g?",
-            database="panavarr_",
+        # Tentar conectar ao banco de dados MySQL
+        conn = mysql.connector.connect(
+            host="186.224.105.111",
+            user="panavarr_panavarro",
+            password="D1n4t3c2025**",
+            database="panavarr_NotasFiscaisCanhoto",
             charset='utf8mb4'
         )
         return conn  # Retorne o objeto de conexão válido
-    except pymysql.MySQLError as e:
-        st.error(f"Erro ao conectar ao MariaDB: {e}")
+    except mysql.connector.Error as e:
+        st.error(f"Erro ao conectar ao MySQL: {e}")
         return None  # Retorne None em caso de erro
 
 # Função para validar e-mail
@@ -243,7 +241,7 @@ footer = """
 </style>
 
 <div class="footer">
-    Desenvolvido.: 🛡️ <a href="https://www.panavarro.com.br" target="_blank">Panavarro</a> | 📩 <a href="mailto:thiago@panavarro.com.br">Suporte</a>
+    Desenvolvido.: 🛡️ <a href="https://www.dinatecriopreto.com.br" target="_blank">Dinatec Rio Preto</a> | 📩 <a href="mailto:thiago@panavarro.com.br">Suporte</a>
 </div>
 <a href="https://wa.me/5516993253920" target="_blank" class="whatsapp-button">
     <i class="fab fa-whatsapp whatsapp-icon"></i>
