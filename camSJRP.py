@@ -9,6 +9,36 @@ import smtplib
 from email.message import EmailMessage
 from streamlit_js_eval import streamlit_js_eval
 import mysql.connector
+# Helper para gerar preview rápido (reduz resolução para acelerar exibição)
+def _criar_preview(img: Image.Image, max_px: int = 1280) -> Image.Image:
+    try:
+        if img.mode in ("P", "RGBA"):
+            img = img.convert("RGB")
+        width, height = img.size
+        maior = max(width, height)
+        if maior <= max_px:
+            return img
+        escala = maior / float(max_px)
+        new_size = (int(width / escala), int(height / escala))
+        preview = img.copy()
+        try:
+            # Pillow >= 9
+            resample = Image.Resampling.LANCZOS
+        except Exception:
+            resample = Image.LANCZOS
+        preview = preview.resize(new_size, resample=resample)
+        return preview
+    except Exception:
+        return img
+
+# Helper para exibir rapidamente com opção de ver original
+def _mostrar_imagem(img: Image.Image, caption: str, key: str):
+    try:
+        st.image(_criar_preview(img), caption=caption, use_container_width=True)
+        with st.expander("Ver em alta resolução (original)"):
+            st.image(img, caption=f"{caption} (Original)", use_container_width=True)
+    except Exception:
+        st.image(img, caption=caption, use_container_width=True)
 
 # Adicionando suporte à leitura de código de barras
 try:
@@ -409,8 +439,8 @@ if pagina == "📸 Captura de Imagem":
             elif rotacao_upload == "Rotação 270°":
                 img_exibir = img_tratada.transpose(Image.Transpose.ROTATE_270)
 
-            # Exibe a imagem (possivelmente rotacionada)
-            st.image(img_exibir, caption="Imagem Carregada", use_container_width=True)
+            # Exibe preview otimizado (reduzido) para maior velocidade, com opção de original
+            _mostrar_imagem(img_exibir, caption="Imagem Carregada", key="img_carregada")
             # Tenta ler o código de barras na imagem exibida
             nota_detectada = ler_codigo_barras(img_exibir)
             if nota_detectada and nota_detectada.isdigit():
@@ -485,7 +515,7 @@ if pagina == "📸 Captura de Imagem":
                     img_tratada = img_tratada.transpose(Image.Transpose.ROTATE_270)
 
                 # Exibir imagem após rotação
-                st.image(img_tratada, caption="Imagem Carregada via Upload", use_container_width=True)
+                _mostrar_imagem(img_tratada, caption="Imagem Carregada via Upload", key="img_upload")
                 
                 # Botão para salvar imagem do upload
                 if st.button("☑️ Salvar Imagem do Upload"):
@@ -503,7 +533,7 @@ if pagina == "📸 Captura de Imagem":
                 img_barcode = Image.open(image_barcode)
 
                 # Exibir imagem carregada
-                st.image(img_barcode, caption="Imagem para Leitura de Código de Barras", use_container_width=True)
+                _mostrar_imagem(img_barcode, caption="Imagem para Leitura de Código de Barras", key="img_barcode")
 
                 # Tentar ler o código de barras
                 codigo_lido = ler_codigo_barras(img_barcode)
@@ -533,7 +563,7 @@ if pagina == "📸 Captura de Imagem":
                     img_barcode_rot = img_barcode.transpose(Image.Transpose.ROTATE_270)
 
                 if rotacao_barcode != "Original":
-                    st.image(img_barcode_rot, caption="Imagem Rotacionada para Leitura", use_container_width=True)
+                    _mostrar_imagem(img_barcode_rot, caption="Imagem Rotacionada para Leitura", key="img_barcode_rot")
                     codigo_lido_rot = ler_codigo_barras(img_barcode_rot)
                     if codigo_lido_rot:
                         st.success(f"✅ Código de barras lido após rotação: {codigo_lido_rot}")
@@ -586,7 +616,24 @@ elif pagina == "📩 Envio de E-mail":
 
             if imagem_binaria:
                 image = Image.open(io.BytesIO(imagem_binaria))
-                st.image(image, caption="Canhoto da Nota Fiscal", use_container_width=True)
+                # Opções de rotação antes do envio
+                st.markdown("Ajuste a orientação da imagem, se necessário:")
+                rotacao_email = st.radio(
+                    "Rotacionar imagem antes do envio:",
+                    ["Original", "Rotação 90°", "Rotação 180°", "Rotação 270°"],
+                    horizontal=True,
+                    key="rot_email"
+                )
+                img_envio = image
+                if rotacao_email == "Rotação 90°":
+                    img_envio = image.transpose(Image.Transpose.ROTATE_90)
+                elif rotacao_email == "Rotação 180°":
+                    img_envio = image.transpose(Image.Transpose.ROTATE_180)
+                elif rotacao_email == "Rotação 270°":
+                    img_envio = image.transpose(Image.Transpose.ROTATE_270)
+
+                # Visualização com preview otimizado e opção de original
+                _mostrar_imagem(img_envio, caption="Canhoto da Nota Fiscal", key="img_email_preview")
             else:
                 st.error("⚠️ Imagem não encontrada para essa nota fiscal.")
         else:
@@ -596,11 +643,17 @@ elif pagina == "📩 Envio de E-mail":
     if resultado and email_destino and assunto_email:
         if st.button("Enviar por E-mail"):
             with st.spinner("Enviando e-mail..."):
+                # Gera bytes da imagem (respeita rotação escolhida, se houver)
+                img_bytes = io.BytesIO()
+                try:
+                    img_envio.save(img_bytes, format='JPEG')
+                except Exception:
+                    image.save(img_bytes, format='JPEG')
                 enviar_email_cpanel(
                     destinatario=email_destino,
                     assunto=assunto_email,
                     mensagem=f"<p>Segue em anexo o canhoto da Nota Fiscal {numero_nota}.</p>",
-                    imagem_bytes=io.BytesIO(imagem_binaria).getvalue(),
+                    imagem_bytes=img_bytes.getvalue(),
                     nome_imagem=f"Canhoto_{numero_nota}.jpeg"
                 )
                 limpar_tela()
