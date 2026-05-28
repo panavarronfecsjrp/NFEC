@@ -62,10 +62,10 @@ def conectar_banco():
     try:
         # Tentar conectar ao banco de dados MySQL
         conn = mysql.connector.connect(
-            host="186.224.105.111",
-            user="panavarr_panavarro",
-            password="D1n4t3c2025**",
-            database="panavarr_NotasFiscaisCanhoto",
+            host=os.getenv("CANHOTO_DB_HOST"),
+            user=os.getenv("CANHOTO_DB_USER"),
+            password=os.getenv("CANHOTO_DB_PASSWORD"),
+            database=os.getenv("CANHOTO_DB_NAME"),
             charset='utf8mb4'
         )
         return conn  # Retorne o objeto de conexão válido
